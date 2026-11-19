@@ -163,7 +163,7 @@ The canonical template is [`.env.example`](.env.example). Empty values mean “n
 | Uploads | `MAX_UPLOAD_MB`, `ALLOWED_UPLOAD_MIME`, `MAX_FETCH_BYTES`, `FETCH_TIMEOUT_SECONDS`, `MAX_REDIRECTS` | 10 MB; PDF/images/text; 256 KiB fetch cap; 8 s timeout; 4 redirects. |
 | Intelligence | `RDAP_ENABLED`, `DNS_ENABLED`, `TLS_ENABLED`, `VIRUSTOTAL_API_KEY`, `GOOGLE_SAFEBROWSING_API_KEY`, `GOOGLE_WEBRISK_API_KEY`, `MCA_API_URL`, `MCA_API_KEY`, `MCA_REQUIRE_CONSENT`, `JOB_SOURCE_URLS` | RDAP/DNS/TLS on by default without keys; all external feeds off until keys are supplied; MCA requires a licensed intermediary and separate consent. |
 | Notifications | `SMTP_*`, `SMS_*`, `NOTIFY_EMAIL_ON_HIGH_RISK` | Empty by default; in-app notifications still work. |
-| Billing | `RAZORPAY_*`, `STRIPE_*`, `PAYMENT_CURRENCY` | Empty by default (checkout returns `503 not configured`). Local `.env` currently has Razorpay **test** keys and webhook secret; `INR` currency default. Stripe remains unconfigured. |
+| Billing | `RAZORPAY_*`, `STRIPE_*`, `PAYMENT_CURRENCY` | Empty by default (checkout returns `503 not configured`). The free Render evaluation deployment leaves both providers blank; `/api/v1/system/config` is authoritative. `INR` is the currency default. |
 | Plans | `FREE_SCAN_LIMIT`, `STUDENT_SCAN_LIMIT`, `PROFESSIONAL_SCAN_LIMIT`, `UNIVERSITY_SCAN_LIMIT`, `ENTERPRISE_SCAN_LIMIT` | `10 / 100 / 500 / 5000 / 100000`; seeded once, then admin-editable. |
 | Risk weights | `RISK_WEIGHT_ML/RULES/DOMAIN/COMPANY/HISTORY/MESSAGE` | `0.28 / 0.24 / 0.18 / 0.14 / 0.10 / 0.06`, renormalised over available evidence. |
 | Frontend | `VITE_API_URL` | `/api/v1`; baked in at build time for the container. |
@@ -172,12 +172,12 @@ The canonical template is [`.env.example`](.env.example). Empty values mean “n
 
 ## Honesty and current limits
 
-* **Most external API credentials remain unconfigured.** There is a local root `.env` containing only Razorpay **test** credentials and `PAYMENT_CURRENCY=INR`; it must never be committed. VirusTotal, Safe Browsing, Web Risk, MCA registry, SMTP, SMS, Stripe and Cloudflare Turnstile remain unconfigured by default and are reported as such.
+* **Most external API credentials remain unconfigured.** The free Render evaluation deployment leaves billing, Turnstile, SMTP/SMS and credentialed intelligence providers unconfigured, and `/api/v1/system/config` reports them honestly. Never commit or paste local credential files into chat.
 * **No paid access from the browser.** Checkout initiation is server-side; only signed provider webhooks change subscription state.
 * **Models are limited.** Two English-language, text-only EMSCAD job models are approved; message and anomaly models were rejected and the runtime falls back to explicit rule scorers. See [DEVELOPMENT_STATUS.md](DEVELOPMENT_STATUS.md) for the active manifest and metrics.
 * **Local fallback is not production.** The in-memory store and eager Celery execution are development conveniences. Production fails closed when MongoDB is unavailable.
 * **Not launch-ready.** Legal drafts are unreviewed, no production secrets or **live** payment provider are configured (only Razorpay test keys), container images were not built locally, and no security audit or production deployment is evidenced. See [docs/LAUNCH_READINESS.md](docs/LAUNCH_READINESS.md).
-* **Repository state.** A local Git repository and root commit (`d0724e9`) now exist, but there is **no remote, push or cloud deployment**. Release provenance requires a pushed remote and a protected branch before any launch process.
+* **Repository state.** The repository is pushed to `origin/main` with a free Render evaluation deployment live. Protected branches, release approvals and a production deployment process are still required before launch.
 * **Legacy code.** The previous SOC application is preserved under `legacy-threat-intel/` for reference. It is **not** active code, is not referenced by the running application or Compose files, and should not be described as part of the HireShield AI product.
 
 ---
@@ -191,3 +191,4 @@ The canonical template is [`.env.example`](.env.example). Empty values mean “n
 * [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) — configuration, container deployment, backups and troubleshooting.
 * [docs/RENDER_DEPLOYMENT.md](docs/RENDER_DEPLOYMENT.md) — Render Blueprint prerequisites, prompts, webhook setup and verification.
 * [docs/TESTING.md](docs/TESTING.md) — exact commands, suite coverage and CI mapping.
+* [docs/PRESENTATION_GUIDE.md](docs/PRESENTATION_GUIDE.md) — slide story, live demo script, architecture view and honest talking points.
