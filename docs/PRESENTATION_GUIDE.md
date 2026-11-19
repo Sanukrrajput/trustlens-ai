@@ -2,7 +2,7 @@
 
 Use this guide to present the project honestly: what is built, what is actually wired, what is disabled, and what evidence proves it.
 
-For a visual opener, use the animated showcase page at <https://hireshield-web-j72o.onrender.com/showcase.html>. Its source is `frontend/public/showcase.html`; it uses only inline HTML/CSS/JS and has no external runtime dependencies. In the 3D hero, tap the HireShield shield to show a suspicious offer connecting through the app, MongoDB and the approved ML engine.
+For a visual opener, use the live app landing page at <https://hireshield-web-j72o.onrender.com>. The interactive 3D hero shows a suspicious offer connecting through HireShield, MongoDB and the approved ML engine. Its source is `frontend/src/components/ConnectionScene3D.tsx`.
 
 ## 1. One-line pitch
 
