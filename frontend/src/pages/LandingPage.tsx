@@ -179,7 +179,7 @@ export function LandingPage() {
       <section className="relative overflow-hidden border-b border-line">
         <div className="absolute inset-0 bg-grid bg-[size:48px_48px] opacity-40" />
         <div className="absolute left-1/2 top-[-12rem] h-[32rem] w-[32rem] -translate-x-1/2 rounded-full bg-brand-500/15 blur-3xl" />
-        <div className="relative mx-auto grid max-w-7xl gap-12 px-4 py-20 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:px-8 lg:py-28">
+        <div className="relative mx-auto grid max-w-7xl gap-12 px-4 py-20 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-start lg:px-8 lg:py-28">
           <div className="animate-fade-up">
             <Badge tone="brand" dot>Evidence-led job risk intelligence</Badge>
             <h1 className="mt-6 text-4xl font-extrabold leading-[1.1] tracking-tight sm:text-5xl lg:text-6xl">
@@ -199,7 +199,7 @@ export function LandingPage() {
               <span className="inline-flex items-center gap-1.5"><Sparkles className="h-4 w-4 text-warn" /> Honest uncertainty</span>
             </div>
           </div>
-          <div id="demo" className="animate-fade-up"><ArchitectureScene3D /></div>
+          <div id="demo" className="animate-fade-up lg:absolute lg:right-8 lg:top-14 lg:w-[420px]"><ArchitectureScene3D /></div>
         </div>
       </section>
 
