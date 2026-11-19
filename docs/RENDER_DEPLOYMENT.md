@@ -1,6 +1,6 @@
 # HireShield AI — Render Deployment Guide
 
-**Status: manifests prepared, nothing deployed.** The root [`render.yaml`](../render.yaml) describes the intended Render resources, but this workspace has no Render account/CLI access, no Git history, no domain and no production secrets. Do not describe HireShield AI as deployed until the checklist at the end passes.
+**Status: manifests prepared, nothing deployed.** The root [`render.yaml`](../render.yaml) describes the intended Render resources. A local Git repository and root commit exist, but there is no remote/push, no Render account/CLI access, no domain and no production secrets. Do not describe HireShield AI as deployed until the checklist at the end passes.
 
 Render will create these resources from the Blueprint:
 
@@ -20,13 +20,9 @@ Render does **not** host MongoDB in this Blueprint. You must provide an external
 
 ## 1. Prerequisites
 
-1. **A Git repository.** Render deploys from Git, not from this local folder. The workspace is currently not a Git repository, so initialise one and push it to GitHub/GitLab/Bitbucket:
+1. **A Git remote.** Render deploys from Git, not from this local folder. A local repository and root commit (`d0724e9`) already exist on `main`; add a remote and push it to GitHub/GitLab/Bitbucket:
 
    ```powershell
-   git init
-   git add .
-   git commit -m "Initial HireShield AI application"
-   git branch -M main
    git remote add origin https://github.com/<you>/<repo>.git
    git push -u origin main
    ```

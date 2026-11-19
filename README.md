@@ -176,7 +176,7 @@ The canonical template is [`.env.example`](.env.example). Empty values mean “n
 * **Models are limited.** Two English-language, text-only EMSCAD job models are approved; message and anomaly models were rejected and the runtime falls back to explicit rule scorers. See [DEVELOPMENT_STATUS.md](DEVELOPMENT_STATUS.md) for the active manifest and metrics.
 * **Local fallback is not production.** The in-memory store and eager Celery execution are development conveniences. Production fails closed when MongoDB is unavailable.
 * **Not launch-ready.** Legal drafts are unreviewed, no production secrets or **live** payment provider are configured (only Razorpay test keys), container images were not built locally, and no security audit or production deployment is evidenced. See [docs/LAUNCH_READINESS.md](docs/LAUNCH_READINESS.md).
-* **Repository state.** The workspace is **not** a git repository and no commits have been made. Commit history and release provenance must be established before any launch process.
+* **Repository state.** A local Git repository and root commit (`d0724e9`) now exist, but there is **no remote, push or cloud deployment**. Release provenance requires a pushed remote and a protected branch before any launch process.
 * **Legacy code.** The previous SOC application is preserved under `legacy-threat-intel/` for reference. It is **not** active code, is not referenced by the running application or Compose files, and should not be described as part of the HireShield AI product.
 
 ---

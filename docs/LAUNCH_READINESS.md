@@ -3,7 +3,7 @@
 **Evidence date:** 19 November 2026
 **Current decision:** **NO-GO for production launch.** **Conditional GO for local demo, internal evaluation and non-production pilots**, provided outputs are treated as advisory and the demo credentials are never exposed outside a controlled environment.
 
-This assessment is based only on files in this repository and checks executed in this working tree. No live production deployment, external API credentials, payment provider, legal approval or security audit is evidenced. A [Render Blueprint](../render.yaml) and [deployment guide](RENDER_DEPLOYMENT.md) were prepared on 19 November 2026, but they are manifests only; no cloud resources were created.
+This assessment is based only on files in this repository and checks executed in this working tree. No live production deployment, external API credentials, payment provider, legal approval or security audit is evidenced. A [Render Blueprint](../render.yaml) and [deployment guide](RENDER_DEPLOYMENT.md) were prepared on 19 November 2026, but they are manifests only; no cloud resources were created. A local Git root commit (`d0724e9`) exists; there is no remote or push.
 
 ---
 
@@ -18,7 +18,7 @@ This assessment is based only on files in this repository and checks executed in
 | Is live billing configured? | **No** | Razorpay **test** keys are configured locally: `/system/config` reports `razorpay=true`, `mode=test`, `webhook=true`, and a real test order was created. The generated webhook secret is not yet registered in the Razorpay dashboard, no test purchase → webhook → subscription drill has run, and no live keys exist. See [RAZORPAY_SETUP.md](RAZORPAY_SETUP.md). |
 | Are legal documents approved? | **No** | `docs/LEGAL_DRAFTS.md` is explicitly a non-lawyer draft requiring counsel review. |
 | Are security and operational controls production-grade? | **No** | In-process rate limit, development defaults, no TLS/host allow-list configuration, no retention job, no backup/DR or incident process evidenced. |
-| Is there a release history? | **No** | Workspace is not a git repository; no commits made. |
+| Is there a release history? | **Partial** | Local root commit `d0724e9` exists on `main`; no Git remote, push, tags or protected branch. |
 
 ---
 
