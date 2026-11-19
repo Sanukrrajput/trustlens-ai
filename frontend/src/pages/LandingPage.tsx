@@ -199,7 +199,7 @@ export function LandingPage() {
               <span className="inline-flex items-center gap-1.5"><Sparkles className="h-4 w-4 text-warn" /> Honest uncertainty</span>
             </div>
           </div>
-          <div id="demo" className="animate-fade-up lg:absolute lg:right-8 lg:top-14 lg:w-[420px]"><ArchitectureScene3D /></div>
+          <div id="demo" className="animate-fade-up lg:fixed lg:right-8 lg:top-20 lg:z-30 lg:w-[420px]"><ArchitectureScene3D /></div>
         </div>
       </section>
 
