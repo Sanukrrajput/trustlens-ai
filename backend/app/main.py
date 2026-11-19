@@ -13,6 +13,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
+from starlette.types import Receive, Scope, Send
 from pymongo.errors import PyMongoError
 
 from app.api.routes import (
@@ -212,6 +213,21 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         logger.info("HireShield AI stopped")
 
 
+class HealthCheckTrustedHostMiddleware(TrustedHostMiddleware):
+    """Enforce host allow-listing except for the infrastructure health path.
+
+    Platform health probes may use an internal hostname or IP in the Host header.
+    Exempting only /health keeps application routes protected while allowing
+    load balancers such as Render to verify process readiness.
+    """
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] == "http" and scope.get("path") == "/health":
+            await self.app(scope, receive, send)
+            return
+        await super().__call__(scope, receive, send)
+
+
 app = FastAPI(
     title="HireShield AI API",
     version=VERSION,
@@ -227,7 +243,9 @@ app = FastAPI(
 
 settings = get_settings()
 if "*" not in settings.allowed_hosts:
-    app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.allowed_hosts)
+    app.add_middleware(
+        HealthCheckTrustedHostMiddleware, allowed_hosts=settings.allowed_hosts
+    )
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
