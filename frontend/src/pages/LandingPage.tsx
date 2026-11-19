@@ -4,7 +4,6 @@ import {
   ArrowRight,
   BadgeCheck,
   Ban,
-  BrainCircuit,
   Building2,
   Check,
   ChevronRight,
@@ -12,16 +11,14 @@ import {
   FileSearch,
   Globe2,
   GraduationCap,
-  Layers3,
   MailWarning,
   Radar,
-  ScanLine,
   ShieldAlert,
   ShieldCheck,
   Sparkles,
   Users,
 } from 'lucide-react';
-import { ConnectionScene3D } from '../components/ConnectionScene3D';
+import { ArchitectureScene3D } from '../components/ArchitectureScene3D';
 import { EvidenceTable } from '../components/EvidenceTable';
 import { RiskGauge } from '../components/RiskGauge';
 import { Badge, Card, SkeletonBlock } from '../components/ui';
@@ -30,13 +27,6 @@ import { billingApi, systemApi } from '../lib/api';
 import { demoAnalysis, demoFaqs, DEMO_LABEL } from '../lib/demo';
 import { formatMoney, titleCase } from '../lib/utils';
 import type { PlanOut } from '../types';
-
-const steps = [
-  { number: '01', icon: ScanLine, title: 'Paste or upload', text: 'Submit a job post, recruiter message, URL or document. You choose whether external lookups are allowed.' },
-  { number: '02', icon: Layers3, title: 'Corroborate signals', text: 'Extraction, domain checks, company intelligence and historical signals are assembled into a single evidence set.' },
-  { number: '03', icon: BrainCircuit, title: 'Read the evidence', text: 'See weighted indicators, model predictions, confidence, missing evidence and limitations — not just a number.' },
-  { number: '04', icon: ShieldCheck, title: 'Act with context', text: 'Make a decision, save the investigation, monitor for changes and submit corrections when something looks wrong.' },
-];
 
 const capabilities = [
   { icon: Fingerprint, title: 'Explainable risk scoring', text: 'Every score is traceable to labelled evidence with severity, weight, confidence and provenance.' },
@@ -209,24 +199,7 @@ export function LandingPage() {
               <span className="inline-flex items-center gap-1.5"><Sparkles className="h-4 w-4 text-warn" /> Honest uncertainty</span>
             </div>
           </div>
-          <div id="demo" className="animate-fade-up"><ConnectionScene3D /></div>
-        </div>
-      </section>
-
-      <section id="how-it-works" className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
-        <div className="mb-10 text-center">
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-brand-600 dark:text-brand-400">How it works</p>
-          <h2 className="section-title mt-2">From suspicion to substantiated evidence</h2>
-        </div>
-        <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
-          {steps.map((step) => (
-            <Card key={step.number} className="relative h-full">
-              <span className="absolute right-5 top-4 text-3xl font-extrabold text-brand-500/15">{step.number}</span>
-              <step.icon className="h-6 w-6 text-brand-500" />
-              <h3 className="mt-5 font-bold">{step.title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-muted">{step.text}</p>
-            </Card>
-          ))}
+          <div id="demo" className="animate-fade-up"><ArchitectureScene3D /></div>
         </div>
       </section>
 
@@ -234,7 +207,7 @@ export function LandingPage() {
         <div className="mb-10 max-w-2xl">
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-brand-600 dark:text-brand-400">Sample investigation</p>
           <h2 className="section-title mt-2">What the evidence actually looks like</h2>
-          <p className="mt-3 text-sm text-muted">The 3D flow above is illustrative. This sample report shows the risk components, sources and limitations the real workflow produces.</p>
+          <p className="mt-3 text-sm text-muted">The 3D architecture animation above is illustrative. This sample report shows the risk components, sources and limitations the real workflow produces.</p>
         </div>
         <DemoAnalysis />
       </section>

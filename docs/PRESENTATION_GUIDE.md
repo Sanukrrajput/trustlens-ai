@@ -2,7 +2,7 @@
 
 Use this guide to present the project honestly: what is built, what is actually wired, what is disabled, and what evidence proves it.
 
-For a visual opener, use the live app landing page at <https://hireshield-web-j72o.onrender.com>. The interactive 3D hero shows a suspicious offer connecting through HireShield, MongoDB and the approved ML engine. Its source is `frontend/src/components/ConnectionScene3D.tsx`.
+For a visual opener, use the live app landing page at <https://hireshield-web-j72o.onrender.com>. The interactive 3D hero explains the internal request path: browser → FastAPI → repositories → MongoDB → approved ML → evidence response. Its source is `frontend/src/components/ArchitectureScene3D.tsx`.
 
 ## 1. One-line pitch
 

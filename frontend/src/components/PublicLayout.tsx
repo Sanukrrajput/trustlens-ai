@@ -15,7 +15,6 @@ export function PublicLayout() {
         <div className="mx-auto flex h-16 max-w-7xl items-center gap-6 px-4 sm:px-6 lg:px-8">
           <Logo />
           <nav className="ml-6 hidden items-center gap-6 text-sm font-medium text-muted md:flex">
-            <a className="hover:text-ink" href="/#how-it-works">How it works</a>
             <a className="hover:text-ink" href="/#capabilities">Capabilities</a>
             <a className="hover:text-ink" href="/#pricing">Pricing</a>
             <a className="hover:text-ink" href="/#faq">FAQ</a>
@@ -38,7 +37,6 @@ export function PublicLayout() {
         {open && (
           <nav className="border-t border-line bg-surface px-4 py-3 md:hidden">
             {[
-              ['How it works', '/#how-it-works'],
               ['Capabilities', '/#capabilities'],
               ['Pricing', '/#pricing'],
               ['FAQ', '/#faq'],
