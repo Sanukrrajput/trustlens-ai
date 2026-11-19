@@ -17,6 +17,8 @@ import type {
   SigninEvent,
   SigninSummary,
   SubscriptionOut,
+  SupportChatReply,
+  SupportChatRequest,
   SystemConfig,
   TaskStatusOut,
   TokenPair,
@@ -358,6 +360,11 @@ export const adminApi = {
   createUser: (body: AdminUserCreate) =>
     api<User>('/admin/users', { method: 'POST', body }),
   auditLogs: () => api<unknown>('/admin/audit-logs'),
+};
+
+export const supportApi = {
+  ask: (body: SupportChatRequest) =>
+    api<SupportChatReply>('/support/chat', { method: 'POST', body, anonymous: true }),
 };
 
 export const systemApi = {

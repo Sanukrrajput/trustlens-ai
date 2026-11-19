@@ -25,6 +25,7 @@ from app.api.routes import (
     monitoring,
     notifications,
     reports,
+    support,
     system,
 )
 from app.billing.payments import PaymentConfigurationError
@@ -310,7 +311,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
 API_PREFIX = "/api/v1"
 for router in (auth.router, analysis.router, company.router, monitoring.router, reports.router):
     app.include_router(router, prefix=API_PREFIX)
-for router in (notifications.router, billing.router, admin.router, system.router):
+for router in (notifications.router, billing.router, admin.router, support.router, system.router):
     app.include_router(router, prefix=API_PREFIX)
 
 

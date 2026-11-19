@@ -288,3 +288,15 @@ export interface ApiErrorShape {
   detail?: string | Array<{ msg?: string; loc?: Array<string | number> }>;
   message?: string;
 }
+
+export interface SupportChatRequest {
+  message: string;
+}
+
+export interface SupportChatReply {
+  answer: string;
+  grounded: boolean;
+  matched_question?: string | null;
+  sources?: string[];
+  suggestions?: string[];
+}

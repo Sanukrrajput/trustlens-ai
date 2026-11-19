@@ -3,6 +3,7 @@ import { Route, Routes, useLocation } from 'react-router-dom';
 import { AppLayout } from './components/Layout';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { PublicLayout } from './components/PublicLayout';
+import { SupportWidget } from './components/SupportWidget';
 import { AuthProvider } from './context/AuthContext';
 import { AdminPage } from './pages/AdminPage';
 import { BillingPage } from './pages/BillingPage';
@@ -33,6 +34,7 @@ export function App() {
   return (
     <AuthProvider>
       <ScrollToTop />
+      <SupportWidget />
       <Routes>
         <Route element={<PublicLayout />}>
           <Route index element={<LandingPage />} />

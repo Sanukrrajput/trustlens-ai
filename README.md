@@ -22,6 +22,7 @@ HireShield AI is a commercial SaaS product that screens job postings, recruiter 
 | Accounts and administration | Registration with terms/privacy consent, login, refresh, logout, email verification and password reset flows; Argon2 password hashing; role-based admin endpoints for users, plans, models, reports, audit logs and task triggers. |
 | Plan enforcement and billing | Plans seeded from code into MongoDB, scan-limit enforcement, Razorpay/Stripe checkout. Paid access is activated **only** by HMAC-verified webhooks; frontend success/cancel redirects never grant a paid plan. |
 | Operational transparency | Public `GET /health`, `GET /api/v1/system/config` capability flags, security headers, audit logging and a 120-per-minute in-process rate limit on analysis endpoints. |
+| Support assistant | A global chat widget answers common questions from curated project documentation through the public `POST /api/v1/support/chat` endpoint. It is stateless, rate limited, and returns an explicit fallback with suggested questions instead of generating or inventing an answer. |
 
 ---
 

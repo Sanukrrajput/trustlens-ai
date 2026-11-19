@@ -352,3 +352,15 @@ class TaskStatusOut(ORMModel):
     status: str
     result: dict[str, Any] | None = None
     error: str | None = None
+
+
+class SupportChatRequest(ORMModel):
+    message: str = Field(min_length=2, max_length=1000)
+
+
+class SupportChatReply(ORMModel):
+    answer: str
+    grounded: bool
+    matched_question: str | None = None
+    sources: list[str] = Field(default_factory=list)
+    suggestions: list[str] = Field(default_factory=list)
