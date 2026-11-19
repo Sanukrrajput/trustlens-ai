@@ -95,7 +95,7 @@ docker compose up --build -d
 
 Compose starts MongoDB, Redis, API, Celery worker, Celery Beat and the frontend nginx image. The UI is published on `${WEB_PORT:-3000}` (default <http://localhost:3000>) and the API on `${API_PORT:-8000}`. nginx proxies same-origin `/api/v1` calls to the API service. `VITE_API_URL` is a **build-time** argument (`/api/v1` by default).
 
-See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for environment precedence, production hardening, TLS, backups and upgrade/rollback notes. A Render Blueprint is provided in [`render.yaml`](render.yaml), with dashboard steps in [docs/RENDER_DEPLOYMENT.md](docs/RENDER_DEPLOYMENT.md). The Blueprint is **prepared but not deployed**; it requires a Git repository, external MongoDB, Render access and production secrets.
+See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for environment precedence, production hardening, TLS, backups and upgrade/rollback notes. A **free-plan** Render Blueprint is provided in [`render.yaml`](render.yaml), with dashboard steps in [docs/RENDER_DEPLOYMENT.md](docs/RENDER_DEPLOYMENT.md). It deploys only a free API web service and a static site; Redis, workers and beat are disabled because Render does not offer them free. The Blueprint is **prepared but not deployed**. MongoDB Atlas M0 and the GitHub remote are ready; the Atlas URI is supplied only through Render's secret prompt. This is an evaluation deployment, not a production launch.
 
 ---
 

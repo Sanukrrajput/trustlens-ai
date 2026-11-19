@@ -1,19 +1,22 @@
-# HireShield AI — Render Blueprint (manifests only)
+# HireShield AI — Render Blueprint (free plan)
 #
-# This file declares the Render resources needed by the application. It does NOT
-# deploy anything by itself and no deployment was performed when it was created.
-# See docs/RENDER_DEPLOYMENT.md for the dashboard steps and prompts.
+# This variant uses only Render resources with a Free compute plan: one free web
+# service (API) and a free static site. Render does NOT offer free background
+# workers, cron jobs or Key Value with persistence, so Celery/Redis are disabled
+# and tasks run in-process via TASK_ALWAYS_EAGER. Scheduled jobs do not run.
+# See docs/RENDER_DEPLOYMENT.md for dashboard steps and the production variant.
 #
-# Prerequisites that are intentionally NOT created here:
-#   - an external MongoDB deployment (for example MongoDB Atlas)
-#   - a Git repository containing this workspace (Render deploys from Git)
-#   - production Razorpay / Turnstile / SMTP credentials, if those features are wanted
+# A free web service sleeps after ~15 minutes idle and takes ~1 minute to wake.
+# This deployment is for evaluation only, not production. Free Key Value/Redis is
+# in-memory only, so it is intentionally not used here.
+#
+# MongoDB is external (MongoDB Atlas free M0 is used for this deployment).
 
 previews:
   generation: "off"
 
 # Shared, non-prompted backend settings. SECRET_KEY is generated once for the
-# group and reused by the API, worker and beat so JWTs remain valid across them.
+# group and used by the API.
 envVarGroups:
   - name: hireshield-backend
     envVars:
@@ -45,12 +48,14 @@ envVarGroups:
         value: /app/models
       - key: DATA_DIR
         value: /app/data
+      # Free Render has no workers, so tasks run in the web process.
       - key: CELERY_ENABLED
-        value: "true"
-      - key: TASK_ALWAYS_EAGER
         value: "false"
-      - key: SCHEDULER_ENABLED
+      - key: TASK_ALWAYS_EAGER
         value: "true"
+      # No Celery beat/cron on free, so scheduled monitoring never runs.
+      - key: SCHEDULER_ENABLED
+        value: "false"
       - key: SEED_DEMO_DATA
         value: "false"
       - key: PAYMENT_CURRENCY
@@ -65,24 +70,13 @@ envVarGroups:
         value: "true"
 
 services:
-  # ------------------------------------------------------------------ Redis
-  # Redis-compatible broker/result backend. Empty ipAllowList blocks all public
-  # access; internal Render services in the same region can still connect.
-  - type: keyvalue
-    name: hireshield-redis
-    region: oregon
-    plan: 256mb
-    ipAllowList: []
-    maxmemoryPolicy: noeviction
-    persistenceMode: journal-snapshot
-
   # -------------------------------------------------------------------- API
   # Render web services route public traffic to the port named by PORT.
   - type: web
     name: hireshield-api
     runtime: docker
     region: oregon
-    plan: 0.5c-512mb
+    plan: free
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
     dockerCommand: 'uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers'
@@ -91,11 +85,6 @@ services:
       - fromGroup: hireshield-backend
       - key: PORT
         value: "8000"
-      - key: REDIS_URL
-        fromService:
-          type: keyvalue
-          name: hireshield-redis
-          property: connectionString
       # Render prompts for sync:false values only when the Blueprint is first
       # created. Leave Razorpay/Turnstile values blank to keep them disabled.
       - key: MONGODB_URI
@@ -109,44 +98,6 @@ services:
       - key: TURNSTILE_SITE_KEY
         sync: false
       - key: TURNSTILE_SECRET_KEY
-        sync: false
-
-  # ----------------------------------------------------------------- Worker
-  - type: worker
-    name: hireshield-worker
-    runtime: docker
-    region: oregon
-    plan: 0.5c-512mb
-    dockerfilePath: ./backend/Dockerfile
-    dockerContext: ./backend
-    dockerCommand: 'celery -A app.workers.celery_app:celery_app worker --loglevel=info --queues=celery --concurrency=2'
-    envVars:
-      - fromGroup: hireshield-backend
-      - key: REDIS_URL
-        fromService:
-          type: keyvalue
-          name: hireshield-redis
-          property: connectionString
-      - key: MONGODB_URI
-        sync: false
-
-  # -------------------------------------------------------------------- Beat
-  - type: worker
-    name: hireshield-beat
-    runtime: docker
-    region: oregon
-    plan: 0.5c-512mb
-    dockerfilePath: ./backend/Dockerfile
-    dockerContext: ./backend
-    dockerCommand: 'celery -A app.workers.celery_app:celery_app beat --loglevel=info'
-    envVars:
-      - fromGroup: hireshield-backend
-      - key: REDIS_URL
-        fromService:
-          type: keyvalue
-          name: hireshield-redis
-          property: connectionString
-      - key: MONGODB_URI
         sync: false
 
   # --------------------------------------------------------------- Frontend

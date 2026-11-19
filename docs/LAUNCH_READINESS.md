@@ -3,7 +3,7 @@
 **Evidence date:** 19 November 2026
 **Current decision:** **NO-GO for production launch.** **Conditional GO for local demo, internal evaluation and non-production pilots**, provided outputs are treated as advisory and the demo credentials are never exposed outside a controlled environment.
 
-This assessment is based only on files in this repository and checks executed in this working tree. No live production deployment, external API credentials, payment provider, legal approval or security audit is evidenced. A [Render Blueprint](../render.yaml) and [deployment guide](RENDER_DEPLOYMENT.md) were prepared on 19 November 2026, but they are manifests only; no cloud resources were created. A local Git root commit (`d0724e9`) exists; there is no remote or push.
+This assessment is based only on files in this repository and checks executed in this working tree. No live production deployment, external API credentials, payment provider, legal approval or security audit is evidenced. A free-plan [Render Blueprint](../render.yaml) and [deployment guide](RENDER_DEPLOYMENT.md) were prepared on 19 November 2026 and parsed successfully in Render, but no Blueprint instance was created and no service was deployed. A MongoDB Atlas free M0 cluster, database user and network access rule exist; the connection string is stored only as a Render secret prompt value and is never committed. The repository is pushed to `Sanukrrajput/hireshield-ai` on `main` (commits `d0724e9`, `fba7dad` plus the pending free-plan update). There are no tags, protected-branch rules or release notes.
 
 ---
 
@@ -12,13 +12,21 @@ This assessment is based only on files in this repository and checks executed in
 | Question | Answer | Evidence |
 | --- | --- | --- |
 | Does the product work locally? | **Yes** | Backend 64 tests pass; frontend 23 tests pass; frontend build passes; Compose configuration validates. |
-| Is the codebase deployable as containers? | **Partially** | Dockerfiles, nginx config, Compose and a Render Blueprint exist; CI builds images. Local image builds were blocked because the Docker daemon was not running, and the Blueprint has not been applied to Render. |
-| Are production secrets configured? | **No** | A local `.env` holds Razorpay **test** keys and a generated webhook secret, but `SECRET_KEY` is still the development placeholder and no production secret store/host/TLS config exists. The Render Blueprint generates a strong `SECRET_KEY` and prompts for other secrets when applied; production startup correctly rejects the weak default. |
+| Is the codebase deployable as containers? | **Partially** | Dockerfiles, nginx config, Compose and a free-plan Render Blueprint exist; CI builds images. Local image builds were blocked because the Docker daemon was not running, and the Blueprint has not been applied to Render. |
+| Are production secrets configured? | **No** | A local `.env` holds Razorpay **test** keys and a generated webhook secret, but `SECRET_KEY` is still the development placeholder. The free-plan Render Blueprint generates a strong `SECRET_KEY`, prompts for the Atlas URI and leaves Razorpay/Turnstile blank. Production startup correctly rejects the weak default. |
 | Are external intelligence providers configured? | **No** | All credentialed provider flags are `false`; RDAP/DNS/TLS are on by default without keys. |
 | Is live billing configured? | **No** | Razorpay **test** keys are configured locally: `/system/config` reports `razorpay=true`, `mode=test`, `webhook=true`, and a real test order was created. The generated webhook secret is not yet registered in the Razorpay dashboard, no test purchase → webhook → subscription drill has run, and no live keys exist. See [RAZORPAY_SETUP.md](RAZORPAY_SETUP.md). |
 | Are legal documents approved? | **No** | `docs/LEGAL_DRAFTS.md` is explicitly a non-lawyer draft requiring counsel review. |
 | Are security and operational controls production-grade? | **No** | In-process rate limit, development defaults, no TLS/host allow-list configuration, no retention job, no backup/DR or incident process evidenced. |
-| Is there a release history? | **Partial** | Local root commit `d0724e9` exists on `main`; no Git remote, push, tags or protected branch. |
+| Is there a release history? | **Partial** | Commits `d0724e9` and `fba7dad` exist on `main` and are pushed to GitHub; no tags, protected branch or release notes. |
+
+### Free Render deployment status (19 November 2026)
+
+- **Not deployed yet.** The free-plan Blueprint was parsed by Render with no YAML errors, but no Blueprint instance or service exists.
+- The intended free resources are `hireshield-api` (Docker web service, `plan: free`) and `hireshield-web` (static site).
+- Redis, workers, beat and all paid plans were removed. `CELERY_ENABLED=false`, `TASK_ALWAYS_EAGER=true` and `SCHEDULER_ENABLED=false`.
+- MongoDB Atlas M0 is the external datastore. The URI is kept in Render's secret prompt and is not in Git, chat or documentation.
+- The free API sleeps when idle, has no background workers/cron and is unsuitable for production webhooks. This is explicitly an evaluation deployment.
 
 ---
 
@@ -47,7 +55,7 @@ Legend: **PASS** = verified in this workspace; **PARTIAL** = implemented but inc
 | Observability | Health and audit signals | **PARTIAL** | `/health`, `/api/v1/health`, `/system/config`, audit log, task status endpoints exist. No alerting, metrics dashboard or queue-depth monitoring evidenced. | Add monitoring/alerting and dashboards before launch. |
 | Backups / DR | Tested restore | **FAIL** | Deployment doc describes options; no executed restore drill evidenced. | Provision managed backups and perform a documented restore test. |
 | Security assurance | Pen test / threat model / dependency scanning | **NOT VERIFIED** | No report or scan output in repository; CI has no dependency audit step. | Complete security review and add dependency scanning to CI. |
-| Release process | Git history and versioned releases | **FAIL** | No `.git`; no commits; container-release workflow exists but has not run here. | Initialise git, commit baseline, protect branches, publish tagged images. |
+| Release process | Git history and versioned releases | **PARTIAL** | Git history is pushed to GitHub; no tags, protected branch or published images. The container-release workflow has not run here. | Protect `main`, tag a release candidate, publish and deploy tagged images. |
 | Legacy separation | Old SOC app not active | **PASS** | `legacy-threat-intel/` preserved; no active code/Compose references. | Keep archived; do not deploy or describe as active product. |
 
 ---
@@ -74,7 +82,7 @@ Runtime flags are derived from `app/api/routes/system.py::_integration_flags` an
 
 Related feature flags from `/system/config` after the local test-key configuration: `external_lookups_require_consent: true`, `corporate_registry_requires_separate_consent: true`, `webhook_only_payment_activation: true`, `billing_enabled: true`, `razorpay_webhook_secret_configured: true` (dashboard registration still pending), `remembered_sign_ins: true`, `demo_mode: true` (development environment).
 
-**Datastore note:** the local `.env` contains only billing variables and no production datastore is provisioned. Redis was unreachable at `localhost:6379` during verification; a local MongoDB listener answered a ping at `localhost:27017`, but there is no evidence of authentication, backup, retention enforcement or production sizing. Treat both as incidental local state, not launch infrastructure. The in-memory fallback is development-only; production startup fails if MongoDB is unavailable.
+**Datastore note:** a MongoDB Atlas free M0 cluster is provisioned for the free Render deployment and the connection string is entered as a Render secret, not stored in `.env` or Git. Atlas authentication is enabled, but backups are off, the IP rule is broad (`0.0.0.0/0`) because Render egress IPs are dynamic, and no restore drill has been performed. Redis is intentionally absent in the free deployment: Celery is disabled, tasks are eager/in-process and scheduled jobs do not run. The in-memory fallback is development-only; production startup fails closed if MongoDB is unavailable.
 
 ---
 
@@ -106,7 +114,7 @@ Related feature flags from `/system/config` after the local test-key configurati
 
 ## 6. Operational blockers
 
-1. No production MongoDB/Redis, authentication, backup or restore drill.
+1. No always-on production MongoDB/Redis with authentication, backup or restore drill. The Atlas M0 cluster is free-tier evaluation infrastructure; the free Render deployment has no Redis.
 2. No TLS/ingress configuration, production host names or CORS policy.
 3. Container images not built locally; no image scanning or pinned release tags deployed.
 4. No external reputation/registry licenses; many assessments would remain inconclusive.
@@ -115,13 +123,13 @@ Related feature flags from `/system/config` after the local test-key configurati
 7. No alerting on health, queue depth, failed webhooks or model load failures.
 8. No reviewer workflow with SLA for correction reports.
 9. No incident response, on-call ownership or DR runbook.
-10. No git repository, commits, tags or rollback record.
+10. Git commits are pushed, but there are no release tags, protected branch or documented rollback record.
 
 ---
 
 ## 7. Exact steps to reach production readiness
 
-1. **Establish source control.** Initialise git at the workspace root, add a `.gitignore`-respecting baseline, commit, create a protected `main` branch and tag a release candidate. Confirm the legacy directory is intentionally archived and not shipped.
+1. **Finish source-control hardening.** The repository is initialised and pushed to GitHub; protect `main`, require reviews/status checks, tag a release candidate and record a rollback point. Confirm the legacy directory is intentionally archived and not shipped.
 2. **Create production environment file.** Copy `.env.example` to `.env` on the server only. Set `ENVIRONMENT=production`; generate `SECRET_KEY` with `openssl rand -hex 48`; set `SEED_DEMO_DATA=false`, production `ALLOWED_HOSTS` and `CORS_ORIGINS`, strong MongoDB credentials, and explicit model/data paths. Never commit `.env`.
 3. **Provision infrastructure.** Deploy MongoDB with authentication, TLS and automated backups; deploy Redis with persistence; size API/worker/beat processes; run `docker compose config --quiet` and build both images from the tagged commit on a Docker-capable host.
 4. **Terminate TLS and lock the boundary.** Put the API/frontend behind a trusted TLS reverse proxy or ingress, forward correct `X-Forwarded-*` headers, enforce HTTPS/HSTS, and remove wildcard host allowance.
