@@ -25,17 +25,30 @@ export function ArchitectureWidget() {
               <X className="h-4 w-4" />
             </button>
           </div>
+          <img
+            src="/architecture-corner.png"
+            alt="Internal architecture illustration"
+            className="h-28 w-full bg-black object-contain"
+          />
           <ArchitectureScene3D />
         </div>
       )}
       <button
         type="button"
-        className="inline-flex items-center gap-2 rounded-full bg-brand-500 px-4 py-2.5 text-sm font-bold text-white shadow-card transition hover:bg-brand-600"
+        className="relative overflow-hidden rounded-2xl border border-line bg-surface p-1.5 shadow-card transition hover:-translate-y-0.5 hover:border-brand-500"
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
         aria-controls="architecture-widget-panel"
+        aria-label="Open internal architecture widget"
       >
-        <Boxes className="h-4 w-4" /> Architecture
+        <img
+          src="/architecture-corner.png"
+          alt="Internal architecture illustration"
+          className="h-28 w-20 rounded-xl bg-black object-contain"
+        />
+        <span className="absolute inset-x-1.5 bottom-1.5 rounded-b-xl bg-black/75 px-1 py-0.5 text-center text-[9px] font-bold uppercase tracking-wide text-white">
+          Architecture
+        </span>
       </button>
     </div>
   );
