@@ -1,8 +1,13 @@
 # HireShield AI — Render Free-Plan Deployment Guide
 
-**Status: free-plan Blueprint prepared. Nothing has been applied on Render yet.** The root [`render.yaml`](../render.yaml) now declares only resources available on Render's Free plan: one free Docker web service for the API and one free static site for the frontend. This is an **evaluation deployment, not a production deployment**.
+**Status: deployed on Render's Free plan.** The root [`render.yaml`](../render.yaml) declares only resources available on Render's Free plan: one free Docker web service for the API and one free static site for the frontend. This is an **evaluation deployment, not a production deployment**.
 
-The repository is pushed to `https://github.com/Sanukrrajput/hireshield-ai.git` on `main`, and an external MongoDB Atlas free M0 cluster is provisioned. Render and GitHub sessions are authenticated, the Render GitHub App is installed for this repository, and the Blueprint was parsed successfully in the Render Blueprint flow. No Blueprint instance has been created and no service has been deployed.
+- API: <https://hireshield-api-wets.onrender.com>
+- Frontend: <https://hireshield-web-j72o.onrender.com>
+- Blueprint instance: `hireshield-ai` (`exs-dbvj2k8n74is739nq3h0`), synced from `Sanukrrajput/hireshield-ai@main`
+- External datastore: MongoDB Atlas free M0; the URI is a Render secret and is not in Git, chat or this document.
+
+Live verification: `/health`, `/api/v1/health` and `/api/v1/system/config` return expected production payloads; the database is connected and `in_memory_fallback` is false; `/docs` and `/openapi.json` return 404; the frontend deep-link path serves the SPA and calls the correct API host.
 
 > Free-plan reality: the API container sleeps after roughly 15 minutes of inactivity and takes about a minute to wake on the next request. Render does not offer free background workers or cron jobs. Do not use this deployment for time-sensitive billing webhooks, scheduled monitoring or production traffic.
 
@@ -61,8 +66,9 @@ No local `.env` value is read by Render. The Blueprint supplies runtime environm
 - `ENVIRONMENT=production` and `SEED_DEMO_DATA=false`: no demo/admin accounts are seeded.
 - `MONGODB_URI` uses `sync: false`, so Render prompts for it. Paste the Atlas URI into that prompt only.
 - `PORT=8000` matches the Uvicorn command. Render routes public traffic to that container port.
-- `CORS_ORIGINS` defaults to `https://hireshield-web.onrender.com`; `ALLOWED_HOSTS` defaults to `hireshield-api.onrender.com`.
-- `VITE_API_URL` defaults to `https://hireshield-api.onrender.com/api/v1`. It is **baked into the JavaScript bundle at build time**. If the API host changes, edit this value and trigger a frontend rebuild; a dashboard-only change is not enough.
+- `CORS_ORIGINS` is set to `https://hireshield-web-j72o.onrender.com`; `ALLOWED_HOSTS` is set to `hireshield-api-wets.onrender.com`.
+- `VITE_API_URL` is set to `https://hireshield-api-wets.onrender.com/api/v1`. It is **baked into the JavaScript bundle at build time**. If the API host changes, edit this value and trigger a frontend rebuild; a dashboard-only change is not enough.
+- `HealthCheckTrustedHostMiddleware` exempts only `/health` from host validation, because platform health probes may send an internal IP or hostname in the `Host` header. Application routes remain host-allow-listed.
 - Razorpay and Turnstile values use `sync: false`. Leave them blank at creation to keep those integrations disabled.
 - `REDIS_URL` is absent. The backend falls back to in-memory Celery behaviour, which is safe only because it is paired with `CELERY_ENABLED=false` and eager tasks.
 

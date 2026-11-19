@@ -95,7 +95,7 @@ docker compose up --build -d
 
 Compose starts MongoDB, Redis, API, Celery worker, Celery Beat and the frontend nginx image. The UI is published on `${WEB_PORT:-3000}` (default <http://localhost:3000>) and the API on `${API_PORT:-8000}`. nginx proxies same-origin `/api/v1` calls to the API service. `VITE_API_URL` is a **build-time** argument (`/api/v1` by default).
 
-See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for environment precedence, production hardening, TLS, backups and upgrade/rollback notes. A **free-plan** Render Blueprint is provided in [`render.yaml`](render.yaml), with dashboard steps in [docs/RENDER_DEPLOYMENT.md](docs/RENDER_DEPLOYMENT.md). It deploys only a free API web service and a static site; Redis, workers and beat are disabled because Render does not offer them free. The Blueprint is **prepared but not deployed**. MongoDB Atlas M0 and the GitHub remote are ready; the Atlas URI is supplied only through Render's secret prompt. This is an evaluation deployment, not a production launch.
+See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for environment precedence, production hardening, TLS, backups and upgrade/rollback notes. A **free-plan** Render Blueprint is provided in [`render.yaml`](render.yaml) and is deployed as an evaluation environment. It deploys only a free API web service and a static site; Redis, workers and beat are disabled because Render does not offer them free. Live hosts: <https://hireshield-api-wets.onrender.com> and <https://hireshield-web-j72o.onrender.com>. MongoDB Atlas M0 is the external datastore; its URI exists only as a Render secret. This is **not a production launch**. See [docs/RENDER_DEPLOYMENT.md](docs/RENDER_DEPLOYMENT.md).
 
 ---
 
@@ -133,7 +133,7 @@ Production behaviour is deliberately restrictive: `ENVIRONMENT=production` requi
 Verified in this working tree on 19 November 2026:
 
 ```powershell
-# Backend: 64 passed
+# Backend: 66 passed
 .\.venv\Scripts\python.exe -m pytest backend/tests -q --tb=line
 
 # Frontend: 23 passed across 6 files

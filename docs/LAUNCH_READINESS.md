@@ -3,7 +3,7 @@
 **Evidence date:** 19 November 2026
 **Current decision:** **NO-GO for production launch.** **Conditional GO for local demo, internal evaluation and non-production pilots**, provided outputs are treated as advisory and the demo credentials are never exposed outside a controlled environment.
 
-This assessment is based only on files in this repository and checks executed in this working tree. No live production deployment, external API credentials, payment provider, legal approval or security audit is evidenced. A free-plan [Render Blueprint](../render.yaml) and [deployment guide](RENDER_DEPLOYMENT.md) were prepared on 19 November 2026 and parsed successfully in Render, but no Blueprint instance was created and no service was deployed. A MongoDB Atlas free M0 cluster, database user and network access rule exist; the connection string is stored only as a Render secret prompt value and is never committed. The repository is pushed to `Sanukrrajput/hireshield-ai` on `main` (commits `d0724e9`, `fba7dad` plus the pending free-plan update). There are no tags, protected-branch rules or release notes.
+This assessment is based only on files in this repository and checks executed in this working tree. No **production** deployment, external API credentials, payment provider, legal approval or security audit is evidenced. A free-plan [Render Blueprint](../render.yaml) **was deployed on 19 November 2026** as an evaluation environment: API at `https://hireshield-api-wets.onrender.com`, frontend at `https://hireshield-web-j72o.onrender.com`, Blueprint `exs-dbvj2k8n74is739nq3h0` synced from `Sanukrrajput/hireshield-ai@main`. A MongoDB Atlas free M0 cluster is the external datastore; its URI exists only as a Render secret and is never committed. The repository is pushed to GitHub (latest commit `605d596`). There are no tags, protected-branch rules or release notes.
 
 ---
 
@@ -11,21 +11,23 @@ This assessment is based only on files in this repository and checks executed in
 
 | Question | Answer | Evidence |
 | --- | --- | --- |
-| Does the product work locally? | **Yes** | Backend 64 tests pass; frontend 23 tests pass; frontend build passes; Compose configuration validates. |
-| Is the codebase deployable as containers? | **Partially** | Dockerfiles, nginx config, Compose and a free-plan Render Blueprint exist; CI builds images. Local image builds were blocked because the Docker daemon was not running, and the Blueprint has not been applied to Render. |
+| Does the product work locally? | **Yes** | Backend 66 tests pass; frontend 23 tests pass; frontend build passes; Compose configuration validates. |
+| Is the codebase deployable as containers? | **Partially** | A free-plan Render Blueprint is deployed and live; CI builds images. Local image builds remain unverified because the Docker daemon was unavailable. |
 | Are production secrets configured? | **No** | A local `.env` holds Razorpay **test** keys and a generated webhook secret, but `SECRET_KEY` is still the development placeholder. The free-plan Render Blueprint generates a strong `SECRET_KEY`, prompts for the Atlas URI and leaves Razorpay/Turnstile blank. Production startup correctly rejects the weak default. |
 | Are external intelligence providers configured? | **No** | All credentialed provider flags are `false`; RDAP/DNS/TLS are on by default without keys. |
 | Is live billing configured? | **No** | Razorpay **test** keys are configured locally: `/system/config` reports `razorpay=true`, `mode=test`, `webhook=true`, and a real test order was created. The generated webhook secret is not yet registered in the Razorpay dashboard, no test purchase → webhook → subscription drill has run, and no live keys exist. See [RAZORPAY_SETUP.md](RAZORPAY_SETUP.md). |
 | Are legal documents approved? | **No** | `docs/LEGAL_DRAFTS.md` is explicitly a non-lawyer draft requiring counsel review. |
 | Are security and operational controls production-grade? | **No** | In-process rate limit, development defaults, no TLS/host allow-list configuration, no retention job, no backup/DR or incident process evidenced. |
-| Is there a release history? | **Partial** | Commits `d0724e9` and `fba7dad` exist on `main` and are pushed to GitHub; no tags, protected branch or release notes. |
+| Is there a release history? | **Partial** | Commits through `605d596` exist on `main` and are pushed to GitHub; no tags, protected branch or release notes. |
 
 ### Free Render deployment status (19 November 2026)
 
-- **Not deployed yet.** The free-plan Blueprint was parsed by Render with no YAML errors, but no Blueprint instance or service exists.
-- The intended free resources are `hireshield-api` (Docker web service, `plan: free`) and `hireshield-web` (static site).
+- **Live evaluation deployment.** Blueprint `hireshield-ai` (`exs-dbvj2k8n74is739nq3h0`) is synced from `main`; both resources are deployed.
+- Free resources: `hireshield-api` (Docker web service, `plan: free`) and `hireshield-web` (static site). No card was required.
 - Redis, workers, beat and all paid plans were removed. `CELERY_ENABLED=false`, `TASK_ALWAYS_EAGER=true` and `SCHEDULER_ENABLED=false`.
-- MongoDB Atlas M0 is the external datastore. The URI is kept in Render's secret prompt and is not in Git, chat or documentation.
+- `/health` is exempted from host allow-list validation so Render's internal health probes receive `200`; all application routes remain host-checked.
+- Live verification passed: `/health`, `/api/v1/health`, `/api/v1/system/config`, SPA deep-link refresh, correct API host in browser network calls, and 404 for `/docs`/`/openapi.json`.
+- MongoDB Atlas M0 is the external datastore. The URI is kept in a Render secret and is not in Git, chat or documentation.
 - The free API sleeps when idle, has no background workers/cron and is unsuitable for production webhooks. This is explicitly an evaluation deployment.
 
 ---
@@ -38,7 +40,7 @@ Legend: **PASS** = verified in this workspace; **PARTIAL** = implemented but inc
 | --- | --- | --- | --- | --- |
 | Core API | Product endpoints under `/api/v1` | **PASS** | Auth, analysis, company, monitoring, reports, notifications, billing, admin and system routers registered in `app/main.py`. | None for functionality. |
 | Explainability | Score with evidence, coverage, limitations | **PASS** | Six-component risk engine, category bands, `inconclusive` flag, sources attempted/succeeded in results. | Validate interpretation with users. |
-| Backend tests | Automated suite passes | **PASS** | `64 passed` via `pytest backend/tests -q --tb=line`. | Keep in CI on every change. |
+| Backend tests | Automated suite passes | **PASS** | `66 passed` via `pytest backend/tests -q --tb=line`. | Keep in CI on every change. |
 | Frontend tests / build | Tests and production build pass | **PASS** | `23 passed` in 6 files; `npm run build` passes. | Keep in CI on every change. |
 | Compose config | Valid Compose definition | **PASS** | `docker compose config --quiet` passes. | Re-run after any Compose edit. |
 | Container images | Both images build | **NOT VERIFIED** | Docker daemon unavailable locally; CI workflow has build steps. | Run both `docker build` commands on a machine with Docker, then deploy those exact tags. |
@@ -138,7 +140,7 @@ Related feature flags from `/system/config` after the local test-key configurati
 7. **Configure billing end to end.** Razorpay **test** keys and a webhook secret are already in the local `.env`; register that secret and the `/api/v1/billing/webhooks/razorpay` URL/events in the Razorpay test dashboard, then complete test-mode checkout → verified webhook → subscription → cancellation → refund/reconciliation drills. For production, replace with live keys/secret. Confirm no frontend callback grants access.
 8. **Obtain legal approval.** Have counsel finalise all documents in `docs/LEGAL_DRAFTS.md`, fill jurisdiction/entity/contact placeholders, approve DPA/subprocessor terms, retention schedule, acceptable use, disclaimers and correction/takedown workflow. Verify deployed behaviour matches the approved text.
 9. **Prove observability and recovery.** Add metrics/alerts for `/health`, database status, broker connectivity, queue depth, failed webhooks, model-load errors and external provider errors. Perform a documented MongoDB restore drill and an application rollback drill.
-10. **Security and quality sign-off.** Run dependency scanning, a security review/penetration test, load testing and the full CI suite (`compileall`, 64 backend tests, training smoke test, frontend build, 23 frontend tests across 6 files, both container builds). Document findings and remediation.
+10. **Security and quality sign-off.** Run dependency scanning, a security review/penetration test, load testing and the full CI suite (`compileall`, 66 backend tests, training smoke test, frontend build, 23 frontend tests across 6 files, both container builds). Document findings and remediation.
 11. **Production smoke test.** Verify `GET /health`, `GET /api/v1/system/config` flags, login with non-demo accounts, one analysis of each type, PDF download, correction submission, admin RBAC denial for non-admin users, and a signed test webhook. Confirm `/docs` and `/openapi.json` are disabled in production.
 12. **Record the go/no-go decision.** Capture evidence, named approvers, residual risks and version/tag in a signed launch record. Only then consider changing this document’s decision.
 
@@ -163,4 +165,4 @@ npm run build
 npm run test -- --run
 ```
 
-Expected local results at this snapshot: compile and tests pass (64 backend), build passes, 23 frontend tests across 6 files, Compose config passes; container builds remain unverified locally. Re-run all checks after every change that affects launch criteria.
+Expected local results at this snapshot: compile and tests pass (66 backend), build passes, 23 frontend tests across 6 files, Compose config passes; container builds remain unverified locally. Re-run all checks after every change that affects launch criteria.
