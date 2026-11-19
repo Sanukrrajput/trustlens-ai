@@ -17,6 +17,8 @@ import type {
   SigninEvent,
   SigninSummary,
   SubscriptionOut,
+  SupportChatClearResult,
+  SupportChatMessage,
   SupportChatReply,
   SupportChatRequest,
   SystemConfig,
@@ -365,6 +367,17 @@ export const adminApi = {
 export const supportApi = {
   ask: (body: SupportChatRequest) =>
     api<SupportChatReply>('/support/chat', { method: 'POST', body, anonymous: true }),
+  history: (sessionId: string) =>
+    api<SupportChatMessage[]>('/support/chat', {
+      params: { session_id: sessionId },
+      anonymous: true,
+    }),
+  clear: (sessionId: string) =>
+    api<SupportChatClearResult>('/support/chat', {
+      method: 'DELETE',
+      params: { session_id: sessionId },
+      anonymous: true,
+    }),
 };
 
 export const systemApi = {

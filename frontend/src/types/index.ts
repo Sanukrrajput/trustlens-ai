@@ -291,12 +291,34 @@ export interface ApiErrorShape {
 
 export interface SupportChatRequest {
   message: string;
+  session_id: string;
+}
+
+export interface SupportChatMessage {
+  id: string;
+  session_id: string;
+  role: 'user' | 'assistant';
+  text: string;
+  grounded?: boolean | null;
+  matched_question?: string | null;
+  sources?: string[];
+  suggestions?: string[];
+  created_at: string;
+}
+
+export interface SupportChatClearResult {
+  status: string;
+  session_id: string;
+  deleted: number;
 }
 
 export interface SupportChatReply {
+  id: string;
   answer: string;
   grounded: boolean;
   matched_question?: string | null;
   sources?: string[];
   suggestions?: string[];
+  session_id: string;
+  created_at: string;
 }

@@ -43,6 +43,7 @@ COLLECTIONS = [
     "token_blacklist",
     "health_checks",
     "signin_events",
+    "support_messages",
 ]
 
 # Lightweight validators: strict enough to catch malformed documents, permissive
@@ -95,6 +96,16 @@ VALIDATORS: dict[str, dict[str, Any]] = {
             "user_id": {"bsonType": "string"},
             "created_at": {"bsonType": "date"},
             "verification": {"bsonType": "string"},
+        },
+    },
+    "support_messages": {
+        "bsonType": "object",
+        "required": ["session_id", "role", "text", "created_at"],
+        "properties": {
+            "session_id": {"bsonType": "string"},
+            "role": {"enum": ["user", "assistant"]},
+            "text": {"bsonType": "string"},
+            "created_at": {"bsonType": "date"},
         },
     },
 }
@@ -158,6 +169,10 @@ INDEXES: dict[str, list[IndexModel]] = {
     ],
     "processed_events": [
         IndexModel([("event_id", ASCENDING)], unique=True, name="uniq_event"),
+    ],
+    "support_messages": [
+        IndexModel([("session_id", ASCENDING), ("created_at", ASCENDING)], name="session_created"),
+        IndexModel([("created_at", ASCENDING)], name="support_ttl", expireAfterSeconds=30 * 24 * 3600),
     ],
     "signin_events": [
         IndexModel([("user_id", ASCENDING), ("created_at", DESCENDING)], name="user_created"),

@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Iterable
 
 from bson import ObjectId
-from pymongo import DESCENDING
+from pymongo import ASCENDING, DESCENDING
 
 from app.db.mongo import MongoDBService
 
@@ -383,6 +383,20 @@ class GenericRepository(BaseRepository):
         self.collection_name = collection_name
 
 
+class SupportMessageRepository(BaseRepository):
+    collection_name = "support_messages"
+
+    def for_session(self, session_id: str, limit: int = 100) -> list[dict[str, Any]]:
+        return self.find(
+            {"session_id": session_id},
+            sort=[("created_at", ASCENDING)],
+            limit=limit,
+        )
+
+    def delete_session(self, session_id: str) -> int:
+        return int(self.col.delete_many({"session_id": session_id}).deleted_count)
+
+
 class Repositories:
     """Composition root for all repositories."""
 
@@ -403,6 +417,7 @@ class Repositories:
         self.signins = SigninRepository(mongo)
         self.models = ModelRepository(mongo)
         self.tasks = TaskStatusRepository(mongo)
+        self.support_messages = SupportMessageRepository(mongo)
         self.user_reports = GenericRepository(mongo, "user_reports")
         self.job_listings = GenericRepository(mongo, "job_listings")
         self.url_scans = GenericRepository(mongo, "url_scans")

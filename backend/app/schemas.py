@@ -356,11 +356,31 @@ class TaskStatusOut(ORMModel):
 
 class SupportChatRequest(ORMModel):
     message: str = Field(min_length=2, max_length=1000)
+    session_id: str = Field(
+        min_length=8,
+        max_length=64,
+        pattern=r"^[A-Za-z0-9_-]+$",
+    )
+
+
+class SupportChatMessage(ORMModel):
+    id: str
+    session_id: str
+    role: Literal["user", "assistant"]
+    text: str
+    grounded: bool | None = None
+    matched_question: str | None = None
+    sources: list[str] = Field(default_factory=list)
+    suggestions: list[str] = Field(default_factory=list)
+    created_at: datetime
 
 
 class SupportChatReply(ORMModel):
+    id: str
     answer: str
     grounded: bool
     matched_question: str | None = None
     sources: list[str] = Field(default_factory=list)
     suggestions: list[str] = Field(default_factory=list)
+    session_id: str
+    created_at: datetime
