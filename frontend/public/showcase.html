@@ -194,79 +194,282 @@
     .stat b { display: block; font-size: 23px; letter-spacing: -0.04em; }
     .stat span { color: var(--muted); font-size: 11px; }
 
-    .hero-visual { position: relative; min-height: 430px; display: grid; place-items: center; }
-    .orbit {
-      position: absolute;
-      border: 1px solid rgba(34, 211, 238, 0.16);
-      border-radius: 50%;
-      animation: spin 22s linear infinite;
+    .hero-visual {
+      position: relative;
+      min-height: 470px;
+      display: grid;
+      place-items: center;
+      perspective: 1000px;
     }
-    .orbit::after {
-      content: "";
+    .scene {
+      --rx: 8deg;
+      --ry: -10deg;
+      position: relative;
+      width: min(100%, 430px);
+      height: 450px;
+      transform-style: preserve-3d;
+      transform: rotateX(var(--rx)) rotateY(var(--ry));
+      transition: transform 0.2s ease-out;
+    }
+    .scene-glow {
       position: absolute;
-      top: -5px; left: 50%;
-      width: 9px; height: 9px;
+      left: 50%; top: 48%;
+      width: 330px; height: 330px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(34,211,238,0.14), transparent 65%);
+      transform: translate(-50%, -50%) translateZ(-70px);
+      filter: blur(8px);
+    }
+    .scene-grid {
+      position: absolute;
+      left: 50%; bottom: 22px;
+      width: 390px; height: 210px;
+      border-radius: 50%;
+      background-image:
+        linear-gradient(rgba(34,211,238,0.18) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(34,211,238,0.18) 1px, transparent 1px);
+      background-size: 32px 32px;
+      transform: translateX(-50%) rotateX(68deg) translateZ(-55px);
+      mask-image: radial-gradient(ellipse, black 10%, transparent 72%);
+      opacity: 0.55;
+    }
+    .scene-links {
+      position: absolute;
+      inset: 0;
+      width: 100%; height: 100%;
+      overflow: visible;
+      pointer-events: none;
+      transform: translateZ(10px);
+    }
+    .scene-links .link-base { fill: none; stroke: rgba(148,180,214,0.2); stroke-width: 1.4; }
+    .scene-links .link-flow {
+      fill: none;
+      stroke: var(--brand);
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-dasharray: 24 320;
+      animation: flow 3.6s linear infinite;
+      opacity: 0.55;
+    }
+    .scene-links .link-flow.alt { stroke: var(--safe); animation-delay: -1.2s; }
+    .scene.flowing .link-flow { opacity: 1; animation-duration: 1.4s; }
+
+    .obj { position: absolute; transform-style: preserve-3d; transition: transform 0.5s ease, filter 0.5s ease; }
+    .obj-label {
+      position: absolute;
+      left: 50%; bottom: -22px;
+      transform: translateX(-50%) translateZ(14px);
+      color: var(--muted);
+      font: 9px/1 var(--mono);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .person { left: 2%; top: 43%; width: 84px; height: 118px; transform: translateZ(25px) rotateY(-14deg); }
+    .person-head {
+      width: 42px; height: 42px;
+      margin: 0 auto 9px;
+      border-radius: 50%;
+      background: linear-gradient(145deg, #b9d9f2, #6ea3c8);
+      box-shadow: inset -6px -6px 12px rgba(0,0,0,0.22), 0 12px 24px rgba(0,0,0,0.45);
+    }
+    .person-body {
+      width: 74px; height: 66px;
+      margin: auto;
+      border: 1px solid rgba(148,180,214,0.25);
+      border-radius: 26px 26px 16px 16px;
+      background: linear-gradient(145deg, #1d4e6b, #0d2a3c);
+      box-shadow: 0 24px 40px rgba(0,0,0,0.5);
+    }
+    .person-body::after {
+      content: "";
+      display: block;
+      width: 18px; height: 18px;
+      margin: 13px auto 0;
       border-radius: 50%;
       background: var(--brand);
       box-shadow: 0 0 18px var(--brand);
     }
-    .orbit-one { width: 390px; height: 390px; }
-    .orbit-two { width: 300px; height: 300px; animation-direction: reverse; animation-duration: 15s; }
-    .orbit-two::after { background: var(--brand-2); box-shadow: 0 0 18px var(--brand-2); }
 
-    .glass-card {
-      position: relative;
-      width: min(100%, 380px);
-      padding: 22px;
-      border: 1px solid rgba(148, 180, 214, 0.22);
-      border-radius: 24px;
-      background: linear-gradient(160deg, rgba(19, 35, 55, 0.94), rgba(8, 18, 30, 0.94));
-      box-shadow: var(--shadow), inset 0 1px rgba(255,255,255,0.06);
-      transform: rotate(-2deg);
-      animation: float 7s ease-in-out infinite;
+    .phone {
+      left: 24%; top: 8%;
+      width: 108px; height: 178px;
+      padding: 8px;
+      border: 1px solid rgba(148,180,214,0.35);
+      border-radius: 19px;
+      background: linear-gradient(145deg, #263d52, #0b1725);
+      box-shadow: 0 30px 55px rgba(0,0,0,0.55), inset 0 1px rgba(255,255,255,0.16);
+      transform: translateZ(58px) rotateY(-16deg) rotateX(6deg);
     }
+    .phone::before {
+      content: "";
+      position: absolute;
+      top: 8px; left: 50%;
+      width: 30px; height: 5px;
+      border-radius: 0 0 8px 8px;
+      background: #06101a;
+      transform: translateX(-50%);
+    }
+    .phone-screen {
+      height: 100%;
+      padding: 24px 10px 10px;
+      border-radius: 12px;
+      overflow: hidden;
+      background: linear-gradient(180deg, #0d2133, #08131f);
+    }
+    .phone-screen span { color: var(--danger); font: 8px var(--mono); letter-spacing: 0.12em; }
+    .phone-screen b { display: block; margin: 10px 0 14px; font-size: 11px; line-height: 1.4; }
+    .phone-screen i { display: block; height: 5px; margin-bottom: 8px; border-radius: 99px; background: rgba(255,255,255,0.1); }
+    .phone-screen i:nth-of-type(2) { width: 72%; }
 
-    .card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
-    .card-top span { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; color: var(--muted); }
-    .live-badge { color: var(--safe); }
+    .shield {
+      left: 40%; top: 31%;
+      width: 132px; height: 142px;
+      padding: 0;
+      border: 0;
+      background: none;
+      color: inherit;
+      cursor: pointer;
+      transform: translateZ(88px) rotateY(16deg);
+    }
+    .shield::before {
+      content: "";
+      position: absolute;
+      inset: -12px;
+      border-radius: 42px 42px 54px 54px;
+      background: linear-gradient(145deg, rgba(34,211,238,0.18), rgba(99,102,241,0.1));
+      filter: blur(14px);
+      transform: translateZ(-20px);
+    }
+    .shield-face {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      border: 1px solid rgba(34,211,238,0.5);
+      border-radius: 34px 34px 48px 48px;
+      background: linear-gradient(155deg, #103044, #071522 70%);
+      box-shadow: 0 30px 60px rgba(0,0,0,0.55), inset 0 1px rgba(255,255,255,0.18);
+      transform: translateZ(14px);
+    }
+    .shield-face::after {
+      content: "";
+      position: absolute;
+      inset: 8px;
+      border: 1px dashed rgba(34,211,238,0.18);
+      border-radius: inherit;
+    }
+    .shield-icon {
+      display: grid;
+      place-items: center;
+      width: 46px; height: 46px;
+      border-radius: 16px;
+      color: #04111a;
+      background: linear-gradient(135deg, var(--brand), #a5f3fc);
+      box-shadow: 0 0 26px rgba(34,211,238,0.35);
+      font-size: 24px;
+      font-weight: 900;
+    }
+    .shield-face b { font-size: 14px; }
+    .shield-face small { color: var(--brand); font: 9px var(--mono); letter-spacing: 0.14em; text-transform: uppercase; }
+    .shield:hover { transform: translateZ(105px) rotateY(6deg); }
+    .scene.flowing .shield-face { animation: shieldPulse 1.5s ease-in-out infinite; }
 
-    .gauge-row { display: flex; align-items: center; gap: 20px; margin-bottom: 22px; }
-    .gauge {
-      --value: 72;
+    .db { left: 69%; top: 53%; width: 94px; height: 108px; transform: translateZ(40px) rotateY(-18deg); }
+    .db-cyl {
+      position: relative;
+      width: 88px; height: 94px;
+      border: 1px solid rgba(52,211,153,0.42);
+      border-radius: 50% / 16%;
+      background: linear-gradient(90deg, #0a2b33, #123f47 45%, #09252c);
+      box-shadow: 0 24px 45px rgba(0,0,0,0.5), inset 0 0 20px rgba(52,211,153,0.08);
+    }
+    .db-cyl::before {
+      content: "";
+      position: absolute;
+      left: 0; right: 0; top: -9px;
+      height: 20px;
+      border: 1px solid rgba(52,211,153,0.55);
+      border-radius: 50%;
+      background: #16454a;
+    }
+    .db-cyl::after {
+      content: "";
+      position: absolute;
+      left: 0; right: 0; bottom: -7px;
+      height: 18px;
+      border: 1px solid rgba(52,211,153,0.28);
+      border-radius: 50%;
+      background: #071f26;
+    }
+    .db-cyl i {
+      position: absolute;
+      left: 6px; right: 6px;
+      height: 18px;
+      border-top: 1px solid rgba(52,211,153,0.35);
+      border-radius: 50%;
+    }
+    .db-cyl i:nth-child(1) { top: 24px; }
+    .db-cyl i:nth-child(2) { top: 48px; }
+    .db-cyl i:nth-child(3) { top: 72px; }
+
+    .ml { left: 72%; top: 10%; width: 96px; height: 78px; transform: translateZ(62px) rotateY(20deg) rotateX(4deg); }
+    .ml-chip {
       position: relative;
       display: grid;
       place-items: center;
-      width: 124px; height: 124px;
-      flex: 0 0 auto;
-      border-radius: 50%;
-      background: conic-gradient(var(--brand) calc(var(--value) * 1%), rgba(255,255,255,0.08) 0);
-      box-shadow: 0 0 36px rgba(34, 211, 238, 0.18);
+      width: 92px; height: 70px;
+      border: 1px solid rgba(99,102,241,0.5);
+      border-radius: 14px;
+      background: linear-gradient(145deg, #1c2452, #0a1124);
+      box-shadow: 0 22px 40px rgba(0,0,0,0.5), inset 0 0 22px rgba(99,102,241,0.1);
+      color: #a5b4fc;
+      font-size: 26px;
     }
-    .gauge::after {
+    .ml-chip::before {
       content: "";
       position: absolute;
-      inset: 11px;
-      border-radius: 50%;
-      background: #0a1726;
+      inset: 8px;
+      border: 1px dashed rgba(165,180,252,0.25);
+      border-radius: 8px;
     }
-    .gauge-label { position: relative; z-index: 1; text-align: center; }
-    .gauge-label b { display: block; font-size: 30px; letter-spacing: -0.06em; }
-    .gauge-label small { color: var(--muted); font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em; }
+    .ml-chip span {
+      position: absolute;
+      right: 9px; bottom: 7px;
+      color: var(--muted);
+      font: 9px var(--mono);
+      letter-spacing: 0.12em;
+    }
 
-    .verdict b { display: block; font-size: 17px; margin-bottom: 6px; }
-    .verdict p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
-
-    .signals { display: grid; gap: 12px; }
-    .signal-label { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 11px; color: var(--muted); }
-    .signal-track { height: 6px; border-radius: 99px; background: rgba(255,255,255,0.07); overflow: hidden; }
-    .signal-fill {
-      display: block;
-      height: 100%;
-      width: var(--w);
-      border-radius: inherit;
-      background: linear-gradient(90deg, var(--brand), var(--brand-2));
-      transform-origin: left;
-      animation: grow 1.1s cubic-bezier(.2,.8,.2,1) both;
+    .scene-result {
+      position: absolute;
+      left: 50%; bottom: 48px;
+      width: 190px;
+      padding: 11px 13px;
+      border: 1px solid rgba(52,211,153,0.35);
+      border-radius: 14px;
+      background: rgba(7,25,32,0.92);
+      box-shadow: 0 20px 40px rgba(0,0,0,0.45);
+      opacity: 0;
+      transform: translateX(-50%) translateZ(105px) scale(0.92);
+      transition: opacity 0.4s ease, transform 0.4s ease;
+    }
+    .scene.connected .scene-result { opacity: 1; transform: translateX(-50%) translateZ(105px) scale(1); }
+    .scene-result b { display: block; color: var(--safe); font-size: 11px; }
+    .scene-result span { color: var(--muted); font-size: 9px; line-height: 1.5; }
+    .scene-status {
+      position: absolute;
+      left: 50%; bottom: 18px;
+      transform: translateX(-50%) translateZ(30px);
+      color: var(--muted);
+      font: 9px var(--mono);
+      letter-spacing: 0.08em;
+      text-align: center;
+      white-space: nowrap;
     }
 
     .ticker {
@@ -485,12 +688,14 @@
     @keyframes marquee { to { transform: translateX(-50%); } }
     @keyframes travel { from { right: -17px; opacity: 0; } 20% { opacity: 1; } to { right: 4px; opacity: 0; } }
     @keyframes blink { 50% { opacity: 0; } }
+    @keyframes flow { from { stroke-dashoffset: 344; } to { stroke-dashoffset: 0; } }
+    @keyframes shieldPulse { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.45); } }
     @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 
     @media (max-width: 980px) {
       .hero, .split, .mongo-wrap, .chat-demo { grid-template-columns: 1fr; }
       .hero { min-height: auto; padding-top: 54px; }
-      .hero-visual { min-height: 390px; }
+      .hero-visual { min-height: 470px; }
       .pipeline { grid-template-columns: repeat(2, 1fr); }
       .node:not(:last-child)::after, .node:not(:last-child)::before { display: none; }
       .roadmap { grid-template-columns: repeat(2, 1fr); }
@@ -504,8 +709,9 @@
       .tabs { flex-wrap: wrap; }
       .hero { gap: 36px; }
       h1 { font-size: 42px; }
-      .orbit-one { width: 310px; height: 310px; }
-      .orbit-two { width: 240px; height: 240px; }
+      .scene { transform: scale(0.86) rotateX(var(--rx)) rotateY(var(--ry)); }
+      .scene-glow { width: 280px; height: 280px; }
+      .scene-grid { width: 330px; height: 180px; }
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -559,28 +765,61 @@
         </div>
       </div>
 
-      <div class="hero-visual reveal" aria-hidden="true">
-        <div class="orbit orbit-one"></div>
-        <div class="orbit orbit-two"></div>
-        <div class="glass-card">
-          <div class="card-top">
-            <span>LIVE ANALYSIS</span>
-            <span class="live-badge">● CONNECTED</span>
+      <div class="hero-visual reveal">
+        <div class="scene" id="scene3d" aria-label="Interactive 3D view: a job seeker connects a suspicious offer to HireShield, MongoDB and the approved ML model">
+          <div class="scene-glow" aria-hidden="true"></div>
+          <div class="scene-grid" aria-hidden="true"></div>
+
+          <svg class="scene-links" viewBox="0 0 430 450" preserveAspectRatio="none" aria-hidden="true">
+            <path class="link-base" d="M82 235 C112 205 132 185 160 166" />
+            <path class="link-flow" d="M82 235 C112 205 132 185 160 166" />
+            <path class="link-base" d="M190 180 C215 190 230 200 242 214" />
+            <path class="link-flow" d="M190 180 C215 190 230 200 242 214" />
+            <path class="link-base" d="M300 190 C320 170 330 146 340 128" />
+            <path class="link-flow alt" d="M300 190 C320 170 330 146 340 128" />
+            <path class="link-base" d="M302 230 C320 250 330 276 338 300" />
+            <path class="link-flow alt" d="M302 230 C320 250 330 276 338 300" />
+          </svg>
+
+          <div class="obj person" aria-hidden="true">
+            <div class="person-head"></div>
+            <div class="person-body"></div>
+            <span class="obj-label">Job seeker</span>
           </div>
-          <div class="gauge-row">
-            <div class="gauge">
-              <div class="gauge-label"><b>72</b><small>risk score</small></div>
+
+          <div class="obj phone" aria-hidden="true">
+            <div class="phone-screen">
+              <span>URGENT HIRING</span>
+              <b>Pay a registration fee today. No interview.</b>
+              <i></i><i></i>
             </div>
-            <div class="verdict">
-              <b>High risk indicators</b>
-              <p>Evidence-backed, with missing sources shown explicitly rather than treated as clean.</p>
-            </div>
+            <span class="obj-label">Suspicious offer</span>
           </div>
-          <div class="signals">
-            <div><div class="signal-label"><span>ML text signal</span><span>0.81</span></div><div class="signal-track"><i class="signal-fill" style="--w:81%"></i></div></div>
-            <div><div class="signal-label"><span>Rules</span><span>0.76</span></div><div class="signal-track"><i class="signal-fill" style="--w:76%"></i></div></div>
-            <div><div class="signal-label"><span>Message pressure</span><span>0.68</span></div><div class="signal-track"><i class="signal-fill" style="--w:68%"></i></div></div>
+
+          <button class="obj shield" id="connectBtn" type="button" aria-label="Connect the suspicious offer to HireShield">
+            <span class="shield-face">
+              <span class="shield-icon">H</span>
+              <b>HireShield</b>
+              <small>Tap to connect</small>
+            </span>
+            <span class="obj-label">App</span>
+          </button>
+
+          <div class="obj ml" aria-hidden="true">
+            <div class="ml-chip">✦<span>ML</span></div>
+            <span class="obj-label">Approved model</span>
           </div>
+
+          <div class="obj db" aria-hidden="true">
+            <div class="db-cyl"><i></i><i></i><i></i></div>
+            <span class="obj-label">MongoDB</span>
+          </div>
+
+          <div class="scene-result" id="sceneResult" aria-live="polite">
+            <b>Evidence assembled</b>
+            <span>Risk signals are explained. This is decision support, not a fraud verdict.</span>
+          </div>
+          <div class="scene-status" id="sceneStatus">Tap the shield to connect the offer</div>
         </div>
       </div>
     </section>
@@ -819,6 +1058,49 @@
       });
     }, { threshold: 0.6 });
     counters.forEach((counter) => counterObserver.observe(counter));
+
+    const scene = document.getElementById('scene3d');
+    const connectBtn = document.getElementById('connectBtn');
+    const sceneStatus = document.getElementById('sceneStatus');
+    const sceneSteps = [
+      'Job seeker connects the offer',
+      'HireShield checks the evidence',
+      'MongoDB saves the session',
+      'Approved ML explains the risk',
+      'Decision support ready — not a verdict'
+    ];
+    let sceneTimers = [];
+
+    if (scene && connectBtn && sceneStatus) {
+      scene.addEventListener('pointermove', (event) => {
+        const rect = scene.getBoundingClientRect();
+        const x = (event.clientX - rect.left) / rect.width;
+        const y = (event.clientY - rect.top) / rect.height;
+        scene.style.setProperty('--ry', ((x - 0.5) * 16).toFixed(2) + 'deg');
+        scene.style.setProperty('--rx', ((0.5 - y) * 12).toFixed(2) + 'deg');
+      });
+      scene.addEventListener('pointerleave', () => {
+        scene.style.setProperty('--ry', '-10deg');
+        scene.style.setProperty('--rx', '8deg');
+      });
+      connectBtn.addEventListener('click', () => {
+        sceneTimers.forEach(clearTimeout);
+        sceneTimers = [];
+        scene.classList.remove('connected', 'flowing');
+        void scene.offsetWidth;
+        scene.classList.add('flowing');
+        sceneStatus.textContent = sceneSteps[0];
+        sceneSteps.slice(1).forEach((step, index) => {
+          sceneTimers.push(setTimeout(() => {
+            sceneStatus.textContent = step;
+            if (index === sceneSteps.length - 2) {
+              scene.classList.add('connected');
+              scene.classList.remove('flowing');
+            }
+          }, 850 * (index + 1)));
+        });
+      });
+    }
 
     const terminalViews = [
       {

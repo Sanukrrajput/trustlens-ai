@@ -192,4 +192,4 @@ The canonical template is [`.env.example`](.env.example). Empty values mean “n
 * [docs/RENDER_DEPLOYMENT.md](docs/RENDER_DEPLOYMENT.md) — Render Blueprint prerequisites, prompts, webhook setup and verification.
 * [docs/TESTING.md](docs/TESTING.md) — exact commands, suite coverage and CI mapping.
 * [docs/PRESENTATION_GUIDE.md](docs/PRESENTATION_GUIDE.md) — slide story, live demo script, architecture view and honest talking points.
-* [frontend/public/showcase.html](frontend/public/showcase.html) — animated, dependency-free system showcase published at `/showcase.html`.
+* [frontend/public/showcase.html](frontend/public/showcase.html) — animated, dependency-free system showcase with an interactive 3D “connect an offer” scene, published at `/showcase.html`.
