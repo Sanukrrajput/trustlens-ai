@@ -34,12 +34,12 @@ envVarGroups:
         value: "30"
       - key: REFRESH_TOKEN_EXPIRE_DAYS
         value: "14"
-      # Replace these host values (and VITE_API_URL below) if Render appends a
-      # suffix to service names or if you attach custom domains. See the guide.
+      # Render appended suffixes to the requested service names. Keep these in
+      # sync with VITE_API_URL below if the public hosts change.
       - key: CORS_ORIGINS
-        value: https://hireshield-web.onrender.com
+        value: https://hireshield-web-j72o.onrender.com
       - key: ALLOWED_HOSTS
-        value: hireshield-api.onrender.com
+        value: hireshield-api-wets.onrender.com
       - key: RATE_LIMIT_PER_MINUTE
         value: "120"
       - key: MONGODB_DB
@@ -110,7 +110,7 @@ services:
     staticPublishPath: ./frontend/dist
     envVars:
       - key: VITE_API_URL
-        value: https://hireshield-api.onrender.com/api/v1
+        value: https://hireshield-api-wets.onrender.com/api/v1
     routes:
       - type: rewrite
         source: /*
