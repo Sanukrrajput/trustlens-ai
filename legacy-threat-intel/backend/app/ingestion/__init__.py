@@ -1,0 +1,1 @@
+"""Authorized data collection framework."""

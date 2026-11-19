@@ -1,0 +1,53 @@
+{
+  "model_name": "job_tfidf_linearsvc",
+  "model_version": "v20261118T181607Z-f6e8b1",
+  "family": "job_tfidf_linearsvc",
+  "kind": "text",
+  "implementation": "sklearn.linear_model",
+  "approved": true,
+  "active": true,
+  "artifact": "job_tfidf_linearsvc_v20261118T181607Z-f6e8b1.joblib",
+  "metadata": "job_tfidf_linearsvc_v20261118T181607Z-f6e8b1.meta.json",
+  "metrics": {
+    "precision": 0.4594594594594595,
+    "recall": 0.9645390070921985,
+    "f1": 0.6224256292906178,
+    "roc_auc": 0.9913966594065634,
+    "pr_auc": 0.9025557517600765,
+    "accuracy": 0.947452229299363,
+    "confusion_matrix": {
+      "tn": 2839,
+      "fp": 160,
+      "fn": 5,
+      "tp": 136
+    },
+    "fpr": 0.053351117039013005,
+    "fnr": 0.03546099290780142,
+    "support": 3140,
+    "positives": 141,
+    "negatives": 2999,
+    "threshold": 0.3669532953556768,
+    "degenerate": false
+  },
+  "provenance": {
+    "name": "emscad_v1",
+    "real_world_data": true,
+    "production_grade": true,
+    "source_file": "C:\\Users\\LENOVO\\AppData\\Local\\Temp\\opencode\\threat-intel-platform\\backend\\data\\raw\\emscad_v1.csv",
+    "origin": "University of the Aegean EMSCAD corpus, CC0-origin Kaggle mirror.",
+    "license": "CC0-origin; redistribution and modification permitted.",
+    "raw_rows": 17880,
+    "invalid_labels_dropped": 0,
+    "short_text_dropped": 0,
+    "duplicates_removed": 2180,
+    "class_counts": {
+      "0": 14993,
+      "1": 707
+    }
+  },
+  "limitations": [
+    "Text-only model: no independent verification of employer, domain or sender is performed.",
+    "English-language EMSCAD corpus; performance on other languages is unvalidated."
+  ],
+  "created_at": "2026-11-18T18:18:09.568723+00:00"
+}

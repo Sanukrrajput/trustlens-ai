@@ -1,0 +1,176 @@
+# HireShield AI — Render Blueprint (manifests only)
+#
+# This file declares the Render resources needed by the application. It does NOT
+# deploy anything by itself and no deployment was performed when it was created.
+# See docs/RENDER_DEPLOYMENT.md for the dashboard steps and prompts.
+#
+# Prerequisites that are intentionally NOT created here:
+#   - an external MongoDB deployment (for example MongoDB Atlas)
+#   - a Git repository containing this workspace (Render deploys from Git)
+#   - production Razorpay / Turnstile / SMTP credentials, if those features are wanted
+
+previews:
+  generation: "off"
+
+# Shared, non-prompted backend settings. SECRET_KEY is generated once for the
+# group and reused by the API, worker and beat so JWTs remain valid across them.
+envVarGroups:
+  - name: hireshield-backend
+    envVars:
+      - key: APP_NAME
+        value: HireShield AI
+      - key: ENVIRONMENT
+        value: production
+      - key: LOG_LEVEL
+        value: INFO
+      - key: SECRET_KEY
+        generateValue: true
+      - key: JWT_ALGORITHM
+        value: HS256
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "30"
+      - key: REFRESH_TOKEN_EXPIRE_DAYS
+        value: "14"
+      # Replace these host values (and VITE_API_URL below) if Render appends a
+      # suffix to service names or if you attach custom domains. See the guide.
+      - key: CORS_ORIGINS
+        value: https://hireshield-web.onrender.com
+      - key: ALLOWED_HOSTS
+        value: hireshield-api.onrender.com
+      - key: RATE_LIMIT_PER_MINUTE
+        value: "120"
+      - key: MONGODB_DB
+        value: hireshield
+      - key: MODEL_DIR
+        value: /app/models
+      - key: DATA_DIR
+        value: /app/data
+      - key: CELERY_ENABLED
+        value: "true"
+      - key: TASK_ALWAYS_EAGER
+        value: "false"
+      - key: SCHEDULER_ENABLED
+        value: "true"
+      - key: SEED_DEMO_DATA
+        value: "false"
+      - key: PAYMENT_CURRENCY
+        value: INR
+      - key: TURNSTILE_ENABLED
+        value: "true"
+      - key: RDAP_ENABLED
+        value: "true"
+      - key: DNS_ENABLED
+        value: "true"
+      - key: TLS_ENABLED
+        value: "true"
+
+services:
+  # ------------------------------------------------------------------ Redis
+  # Redis-compatible broker/result backend. Empty ipAllowList blocks all public
+  # access; internal Render services in the same region can still connect.
+  - type: keyvalue
+    name: hireshield-redis
+    region: oregon
+    plan: 256mb
+    ipAllowList: []
+    maxmemoryPolicy: noeviction
+    persistenceMode: journal-snapshot
+
+  # -------------------------------------------------------------------- API
+  # Render web services route public traffic to the port named by PORT.
+  - type: web
+    name: hireshield-api
+    runtime: docker
+    region: oregon
+    plan: 0.5c-512mb
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    dockerCommand: 'uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers'
+    healthCheckPath: /health
+    envVars:
+      - fromGroup: hireshield-backend
+      - key: PORT
+        value: "8000"
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: hireshield-redis
+          property: connectionString
+      # Render prompts for sync:false values only when the Blueprint is first
+      # created. Leave Razorpay/Turnstile values blank to keep them disabled.
+      - key: MONGODB_URI
+        sync: false
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: RAZORPAY_WEBHOOK_SECRET
+        sync: false
+      - key: TURNSTILE_SITE_KEY
+        sync: false
+      - key: TURNSTILE_SECRET_KEY
+        sync: false
+
+  # ----------------------------------------------------------------- Worker
+  - type: worker
+    name: hireshield-worker
+    runtime: docker
+    region: oregon
+    plan: 0.5c-512mb
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    dockerCommand: 'celery -A app.workers.celery_app:celery_app worker --loglevel=info --queues=celery --concurrency=2'
+    envVars:
+      - fromGroup: hireshield-backend
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: hireshield-redis
+          property: connectionString
+      - key: MONGODB_URI
+        sync: false
+
+  # -------------------------------------------------------------------- Beat
+  - type: worker
+    name: hireshield-beat
+    runtime: docker
+    region: oregon
+    plan: 0.5c-512mb
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    dockerCommand: 'celery -A app.workers.celery_app:celery_app beat --loglevel=info'
+    envVars:
+      - fromGroup: hireshield-backend
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: hireshield-redis
+          property: connectionString
+      - key: MONGODB_URI
+        sync: false
+
+  # --------------------------------------------------------------- Frontend
+  # Built from the repo root so staticPublishPath is unambiguous. VITE_API_URL
+  # is baked into the bundle at build time; it must be the API's public URL.
+  - type: web
+    name: hireshield-web
+    runtime: static
+    buildCommand: 'cd frontend && npm ci && npm run build'
+    staticPublishPath: ./frontend/dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://hireshield-api.onrender.com/api/v1
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    headers:
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: X-Frame-Options
+        value: SAMEORIGIN
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin

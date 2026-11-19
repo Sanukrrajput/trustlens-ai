@@ -1,0 +1,54 @@
+{
+  "model_name": "anomaly_iforest",
+  "model_version": "v20261118T181212Z-f6e8b1",
+  "family": "anomaly_iforest",
+  "kind": "anomaly",
+  "implementation": "sklearn.IsolationForest",
+  "approved": false,
+  "active": false,
+  "artifact": "anomaly_iforest_v20261118T181212Z-f6e8b1.joblib",
+  "metadata": "anomaly_iforest_v20261118T181212Z-f6e8b1.meta.json",
+  "metrics": {
+    "precision": 0.19230769230769232,
+    "recall": 0.1773049645390071,
+    "f1": 0.1845018450184502,
+    "roc_auc": 0.7250821195717722,
+    "pr_auc": 0.1111902024396251,
+    "accuracy": 0.9296178343949044,
+    "confusion_matrix": {
+      "tn": 2894,
+      "fp": 105,
+      "fn": 116,
+      "tp": 25
+    },
+    "fpr": 0.03501167055685228,
+    "fnr": 0.8226950354609929,
+    "support": 3140,
+    "positives": 141,
+    "negatives": 2999,
+    "threshold": 0.6426247244842451,
+    "degenerate": false
+  },
+  "provenance": {
+    "name": "emscad_v1",
+    "real_world_data": true,
+    "production_grade": true,
+    "source_file": "C:\\Users\\LENOVO\\AppData\\Local\\Temp\\opencode\\threat-intel-platform\\backend\\data\\raw\\emscad_v1.csv",
+    "origin": "University of the Aegean EMSCAD corpus, CC0-origin Kaggle mirror.",
+    "license": "CC0-origin; redistribution and modification permitted.",
+    "raw_rows": 17880,
+    "invalid_labels_dropped": 0,
+    "short_text_dropped": 0,
+    "duplicates_removed": 2180,
+    "class_counts": {
+      "0": 14993,
+      "1": 707
+    }
+  },
+  "limitations": [
+    "Text-only model: no independent verification of employer, domain or sender is performed.",
+    "English-language EMSCAD corpus; performance on other languages is unvalidated.",
+    "Contextual anomaly features (domain age, reputation, company age, scam reports) are absent from EMSCAD and are treated as neutral zeroes during training; runtime values from upstream lookups are unvalidated."
+  ],
+  "created_at": "2026-11-18T18:13:50.627202+00:00"
+}

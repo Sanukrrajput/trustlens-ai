@@ -1,0 +1,226 @@
+# HireShield AI — API Reference
+
+Scope: every route registered by `backend/app/main.py` and the route modules under `backend/app/api/routes/`. All paths below are relative to the API prefix `/api/v1` unless explicitly marked as a root path. Request/response models are defined in `backend/app/schemas.py`.
+
+**Local environment:** no `.env` exists in this workspace. Credentials and keys default to empty strings, so `/system/config` reports all external integrations as unavailable/unconfigured, no paid checkout can be created (503), and no simulated intelligence results are returned.
+
+## 1. Conventions
+
+| Item | Behaviour |
+| --- | --- |
+| Base URL | `/api/v1`; root metadata `GET /` and real process health `GET /health` are outside the prefix. In Compose, nginx also serves a static `GET /health`. |
+| Authentication | `Authorization: Bearer <access_token>` for protected routes. Tokens are HS256 JWTs with `type`, `sub`, `jti`, 30-minute access / 14-day refresh expiry (`backend/app/core/security.py`). |
+| Roles | `user = student < staff < admin < owner`; `require_admin` accepts admin or owner. Ownership is checked separately on analyses, reports and monitoring tasks. |
+| Content type | JSON for all bodies except `POST /analysis/document` (`multipart/form-data`) and provider webhooks (raw body). |
+| Error shape | `{"detail": "..."}`; validation errors use `{"detail": [{"loc": [...], "msg": "..."}]}` (HTTP 422). |
+| Rate limiting | Selected routes: 120 requests / client IP / path / 60 seconds, in-process sliding window (`backend/app/api/deps.py`). |
+| Usage accounting | Middleware records one `api_usage` increment per authenticated `/api/*` request per user per UTC hour, excluding `/api/v1/auth/refresh`. |
+| Docs | `/docs` and `/openapi.json` exist only when `ENVIRONMENT != production`; ReDoc is disabled. |
+| Security headers | `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-Opener-Policy`, CSP on every response; HSTS in production. |
+
+## 2. Public endpoints (no access token)
+
+| Method | Path | Purpose | Request / response | Notes |
+| --- | --- | --- | --- | --- |
+| `GET` | `/` | Service metadata | `{service, version, docs, api, status}` | Root, outside `/api/v1` (`main.py:299`). |
+| `GET` | `/health` | Real API + MongoDB health | `{status, version, environment, database, in_memory_fallback, started_at}` | Root, outside prefix (`main.py:310`). |
+| `GET` | `/health` | Versioned health with Redis status | `{status, version, environment, timestamp, database, broker, configured, in_memory_fallback, ...}` | `/api/v1/health` from `system.py`; use this through nginx. |
+| `GET` | `/system/config` | Non-secret capabilities | `{app_name, version, environment, integrations, features, upload, support_note}` | Unconfigured providers are `false`. |
+| `POST` | `/auth/register` | Create account | `UserRegister` → `UserOut`, **201** | Requires `consent_privacy` and `consent_terms`; email must be new (409); creates free subscription; sends verification email if SMTP configured. Rate limited. |
+| `POST` | `/auth/login` | Obtain tokens | `UserLogin` → `TokenPair` | 401 invalid credentials; 403 disabled account. Optional `access_mode` (`user`/`admin`) is checked against the **verified account role** — a normal account cannot sign in as admin and an admin cannot sign in as a normal user (403). Other optional fields: `device_id`, `remember_device`, `turnstile_token`. Returns `previous_signin`, `new_device`, `verification`. With Turnstile configured, a missing/invalid token returns 400. Rate limited. |
+| `GET` | `/auth/security-config` | Public login verification capabilities | `LoginSecurityOut` | `{enabled, site_key, provider, status, note}`; `status=not_configured` when keys are absent. |
+| `POST` | `/auth/refresh` | Rotate tokens | `RefreshRequest` → `TokenPair` | Body refresh token; 401 on invalid/expired type or unavailable user. Excluded from usage counting. |
+| `POST` | `/auth/verify-email` | Confirm email | `VerifyEmailRequest` → `{"status":"verified"}` | 400 invalid token, 404 user missing. |
+| `POST` | `/auth/forgot-password` | Request reset link | `ForgotPasswordRequest` → `{"status":"accepted"}` | Always accepted; email only sent when SMTP configured. Rate limited. |
+| `POST` | `/auth/reset-password` | Set new password | `ResetPasswordRequest` → `{"status":"updated"}` | 400 invalid token, 404 user missing. |
+| `GET` | `/billing/plans` | Active plan catalogue | `list[PlanOut]` | Prices from seeded/admin-edited `plans` collection. |
+| `POST` | `/billing/webhooks/{provider}` | Payment provider event | raw JSON → `{status, event_id, subscription_status\|...}` | Public but **signature required**; `provider` is `razorpay` or `stripe`, otherwise 404. See §7. |
+
+## 3. Authenticated endpoints
+
+All routes in this section require a valid access token (`get_current_user`). Ownership is enforced where noted; admin bypass is explicit in code.
+
+### 3.1 Authentication / account
+
+| Method | Path | Purpose | Response | Evidence |
+| --- | --- | --- | --- | --- |
+| `GET` | `/auth/me` | Current user | `UserOut` | `auth.py:157` |
+| `GET` | `/auth/signin-activity` | Recent sign-ins | `list[SigninEventOut]` | Own events only, newest first, `limit` 1–50; includes device label, masked IP, Cloudflare country header when present, device recognition and verification status. |
+| `POST` | `/auth/logout` | Revoke current access token | `{"status":"logged_out"}` | Adds JWT `jti` to `token_blacklist`; audit `user.logout`. |
+| `POST` | `/auth/resend-verification` | Resend verification email | `{"status":"accepted"}` | Uses first configured CORS origin as link base. |
+
+### 3.2 Analysis
+
+| Method | Path | Purpose | Request | Response |
+| --- | --- | --- | --- | --- |
+| `POST` | `/analysis/job` | Analyse a posting | `JobAnalysisRequest` | `AnalysisResult` |
+| `POST` | `/analysis/message` | Analyse a recruiter message | `MessageAnalysisRequest` | `AnalysisResult` |
+| `POST` | `/analysis/url` | Analyse a URL | `UrlAnalysisRequest` | `AnalysisResult` |
+| `POST` | `/analysis/document` | Analyse PDF/image/text upload | multipart: `file`, `consent_external_lookups`, optional `client_request_id` | `AnalysisResult` |
+| `GET` | `/analysis` | List own analyses | query: `page`, `page_size` (1–100), `analysis_type` | `Paginated[AnalysisListItem]` |
+| `GET` | `/analysis/{analysis_id}` | Fetch one result or task state | path id | `AnalysisResult \| TaskStatusOut` |
+
+Notes from `backend/app/api/routes/analysis.py`:
+
+- All four submission routes use `enforce_rate_limit` and convert `PermissionError` from `PlanService.can_scan()` into **402** (plan inactive or scan limit reached).
+- Document uploads validate size (10 MB), declared MIME, magic bytes and filename before parsing; invalid uploads produce **400**.
+- `GET /analysis` rejects `page < 1` or `page_size` outside 1–100 with **400**.
+- `GET /analysis/{id}` returns 404 for a missing analysis and enforces owner/`admin`/`owner` access when an analysis document exists. If no analysis exists but a `task_status` document does, it returns a `TaskStatusOut` (task polling path).
+
+### 3.3 Company intelligence and monitoring
+
+| Method | Path | Purpose | Request | Response |
+| --- | --- | --- | --- | --- |
+| `POST` | `/company/verify` | Consent-gated company corroboration | `CompanyVerifyRequest` | raw result dict (`json_safe`) |
+| `GET` | `/company/{company_id}` | Stored company + up to 20 prior investigations | path id | dict; 404 if not found |
+| `GET` | `/monitoring` | List own monitoring tasks | — | `list[MonitoringTaskOut]` (max 200 by repository) |
+| `POST` | `/monitoring` | Create task | `MonitoringTaskCreate` | `MonitoringTaskOut`, **201**; 400 if no company/title/keyword |
+| `DELETE` | `/monitoring/{monitor_id}` | Delete own task | path id | `{"status":"deleted"}`; 404 when not owned |
+
+`GET /company/{id}` is authenticated but has no per-user ownership filter (`company.py:38–60`). Company verification writes an audit event `company.verify`.
+
+### 3.4 Reports and feedback
+
+| Method | Path | Purpose | Response / notes |
+| --- | --- | --- | --- |
+| `POST` | `/reports/feedback` | Submit correction/dispute | `UserReportCreate` → `UserReportOut` with `status: pending_review`; requires ownership of the analysis. |
+| `GET` | `/reports/{analysis_id}` | Report metadata | `{analysis_id, report_id, generated_at, risk, status:"available"}`; ownership/admin bypass. |
+| `GET` | `/reports/{analysis_id}/pdf` | Download PDF | `application/pdf` with `Content-Disposition`; generated and cached in `reports` if absent. |
+| `GET` | `/reports/export/analyses.csv` | Export analyses | **Admin-only**; `text/csv`, up to 5,000 analyses. Registered before the dynamic `/{analysis_id}` route. |
+
+Ownership failures for reports return **403** `not permitted`; missing analyses return **404**.
+
+### 3.5 Notifications
+
+| Method | Path | Purpose | Request | Response |
+| --- | --- | --- | --- | --- |
+| `GET` | `/notifications` | Paginated inbox | `page`, `page_size` (1–100), `unread_only` | `Paginated[NotificationOut]` |
+| `PATCH` | `/notifications/{notification_id}/read` | Mark read | path id | `NotificationOut`; 404 if not owned/found |
+| `PUT` | `/notifications/preferences` | Merge alert preferences | `PreferencesIn` (`email_alerts`, `in_app_alerts`, `sms_alerts`, extra allowed) | `{"status":"updated","preferences":{...}}` |
+
+### 3.6 Billing (authenticated)
+
+| Method | Path | Purpose | Request | Response |
+| --- | --- | --- | --- | --- |
+| `GET` | `/billing/subscription` | Current subscription + usage | — | `SubscriptionOut` |
+| `POST` | `/billing/checkout` | Create provider checkout | `CheckoutRequest` | `CheckoutOut`; **503** if provider unconfigured; **502** on provider/network failure |
+| `POST` | `/billing/subscription/cancel` | Set cancellation flag | `{"cancel_at_period_end": true}` | `SubscriptionOut` — does **not** change billing status |
+
+`success_url`/`cancel_url` must be absolute `http(s)` URLs whose netloc is in `CORS_ORIGINS`; otherwise **400**. A frontend success callback never activates a plan.
+
+## 4. Admin-only endpoints
+
+Every route below depends on `require_admin` (`backend/app/api/deps.py:92`). A non-admin receives **403** `insufficient permissions`.
+
+| Method | Path | Purpose | Response / notes |
+| --- | --- | --- | --- |
+| `GET` | `/admin/dashboard` | Platform counts, distributions, 24h API usage | `total_users`, `total_analyses`, `high_risk_count`, `inconclusive_count`, `api_requests_24h`, `scans_by_type`, `risk_distribution`, `daily_scans`, `generated_at` |
+| `GET` | `/admin/users` | Paginated users minus password hash/consent | `{items,total,page,page_size}` with subscription summary |
+| `POST` | `/admin/users` | Create user/staff/admin account | `AdminUserCreate` (`email`, `password` 10–128 chars, `full_name`, optional `organisation`, `role`) → `UserOut`, **201**; 409 duplicate email, 400 `owner`/unknown role, 403 above own role. Free subscription, unverified email, verification email attempt when SMTP configured, and `admin.user_created` audit event. |
+| `PATCH` | `/admin/users/{user_id}/role` | Change role | `{"status":"updated",...}`; unknown role 400; cannot grant above own role (403) |
+| `PATCH` | `/admin/users/{user_id}/active` | Enable/disable user | 404 missing; 403 if disabling an `owner` |
+| `GET` | `/admin/audit-logs` | Paginated audit trail | optional `action` regex filter (case-insensitive) |
+| `GET` | `/admin/models` | Model versions and active flags | `{items, active}` |
+| `GET` | `/admin/reports` | User feedback reports (max 200) | `{items,total}` |
+| `PATCH` | `/admin/reports/{report_id}` | Review feedback | `ReportReview`: `reviewed\|dismissed\|actioned`, optional notes |
+| `GET` | `/admin/plans` | All plans sorted by monthly price | `{items}` |
+| `PATCH` | `/admin/plans/{code}` | Edit plan fields | `PlanChange`; 404 missing, 400 when no changes |
+| `GET` | `/admin/config` | Non-secret settings | `Settings.public_dict()` with secrets masked as `***configured***` |
+| `GET` | `/admin/tasks` | 50 most recently updated Celery task statuses | `{items}` |
+| `GET` | `/system/tasks/{task_id}` | One task status | `TaskStatusOut`; unknown id → `status: "unknown"` |
+| `POST` | `/system/tasks/monitoring` | Trigger `run_monitoring` | `TriggerOut` (`task_id`, `status`, `task_name`) |
+| `POST` | `/system/tasks/domain-refresh` | Trigger `refresh_domain_intelligence` | `TriggerOut` |
+| `POST` | `/system/tasks/analytics` | Trigger `aggregate_analytics` | `TriggerOut` |
+| `POST` | `/system/tasks/health-check` | Trigger `health_check` | `TriggerOut` |
+
+`TriggerOut` status is `queued` on successful dispatch; dispatch failures are returned as status `failed` with an `error` string rather than raising.
+
+## 5. Important request/response shapes
+
+Source: `backend/app/schemas.py` (class names below).
+
+| Model | Fields relevant to clients |
+| --- | --- |
+| `UserRegister` | `email`, `password` (10–128 chars), `full_name`, optional `organisation`, `consent_privacy=true`, `consent_terms=true` |
+| `TokenPair` | `access_token`, `refresh_token`, `token_type="bearer"`, `expires_in` (seconds) |
+| `UserOut` | `id`, `email`, `full_name`, `role`, `organisation`, `email_verified`, `created_at`, `preferences` |
+| `JobAnalysisRequest` | `text` (20–200k), optional `company_name`, `job_title`, `recruiter_email`, `source_url`, `consent_external_lookups=false`, `client_request_id` |
+| `MessageAnalysisRequest` | `text` (5–100k), `channel` (`email\|sms\|whatsapp\|unknown`), optional `sender`, `consent_external_lookups`, `client_request_id` |
+| `UrlAnalysisRequest` | `url` (5–2048), `consent_external_lookups`, `client_request_id` |
+| `CompanyVerifyRequest` | `company_name`, optional `website_url`, `corporate_id`, two independent consent flags |
+| `AnalysisResult` | `id`, `analysis_type`, `status`, `user_id`, `created_at`, `completed_at`, redacted `input_preview`, `extracted`, `model_predictions`, `domain_intelligence`, `company_intelligence`, `message_intelligence`, `historical_intelligence`, `indicators`, `missing_evidence`, `technical_limitations`, `risk`, `sources_attempted`, `sources_succeeded`, `report_id` |
+| `RiskAssessment` | `score` (0–100), `category`, `inconclusive`, `summary`, `evidence_summary`, `recommended_actions`, `confidence`, `data_coverage`, `weights_version`, `component_scores` |
+| `EvidenceIndicator` | `name`, `status` (confirmed_malicious → supportive), `severity`/`confidence` 0–1, `description`, `source`, optional `reference_url`, `observed_at`, `independently_verified`, optional `expires_at`, `weight` |
+| `ModelPrediction` | `model_name`, `model_version`, `prediction`, `fraud_probability`, `confidence`, `contributing_features`, `limitations` |
+| `AnalysisListItem` / `Paginated[T]` | list items plus `total`, `page`, `page_size`, `pages` |
+| `TaskStatusOut` | `task_id`, `status`, optional `result`, `error` |
+| `MonitoringTaskCreate` / `Out` | `name`, `company_names`, `job_titles`, `source_urls`, `keywords`, `enabled`, `notify_email`, `notify_in_app`; `Out` adds `user_id`, `created_at`, `last_run_at`, `last_status` |
+| `NotificationOut` | `id`, `user_id`, `kind`, `title`, `body`, `severity`, `read`, `created_at`, optional `analysis_id` |
+| `PlanOut` | `code`, `name`, `description`, `price_monthly_paise`, `price_yearly_paise`, `currency`, `scan_limit`, `features`, `active`, `popular` |
+| `CheckoutRequest` | `plan_code`, `interval` (`monthly\|yearly`), `provider` (`razorpay\|stripe`), optional `success_url`, `cancel_url` |
+| `CheckoutOut` | `provider`, `checkout_id` (Razorpay order id), optional `key_id` (public Razorpay key), optional `checkout_url` (Stripe), `amount`, `currency`, optional `name`, `description`, `mode` (`test\|live\|unknown`) |
+| `SubscriptionOut` | `id`, `user_id`, `plan_code`, `status`, `interval`, `provider`, `current_period_end`, `scans_used`, `scan_limit`, `cancel_at_period_end` |
+| `UserReportCreate` / `Out` | `analysis_id`, `report_type` (`false_positive\|missed_fraud\|identity_correction\|other`), `details`, optional `evidence_url`; `Out` adds `user_id`, `status`, `created_at` |
+
+The risk categories are defined in `backend/app/core/risk_engine.py`: `0–19 Low observed risk`, `20–39 Limited warning signals`, `40–59 Moderate risk`, `60–79 High risk`, `80–100 Critical risk indicators`. Low evidence coverage forces `inconclusive=true`; a low score is never a safety guarantee.
+
+## 6. Error conventions and rate limits
+
+| Status | Typical causes |
+| --- | --- |
+| 400 | Invalid pagination, upload validation, invalid email/reset token, disallowed redirect URL, malformed monitoring task, missing plan changes |
+| 401 | Missing/malformed bearer header, invalid/expired token, wrong token type, revoked `jti`, unavailable user |
+| 402 | `PlanService.can_scan()` denied: subscription not active or scan limit reached (analysis routes) |
+| 403 | Insufficient role, non-owned analysis/report, disabled account at login, role escalation attempt, owner disable attempt |
+| 404 | Unknown analysis/company/monitor/notification/report/user, unknown webhook provider, plan not found |
+| 409 | Email already registered |
+| 422 | Pydantic validation failure; `detail` is a list of `{loc, msg}` |
+| 429 | Rate limit exceeded on rate-limited routes |
+| 500 | Generic unhandled error (`internal server error`) or webhook processing failure |
+| 502 | Payment provider temporarily unavailable |
+| 503 | Database not ready, `PyMongoError`, or `PaymentConfigurationError` (integration not configured) |
+
+Rate-limited routes (`enforce_rate_limit` dependency): `POST /auth/register`, `POST /auth/login`, `POST /auth/forgot-password`, and `POST /analysis/{job,message,url,document}`. The limiter key is `<client host>:<path>`, so the same client has an independent window per route. It is in-process; restart resets it and multiple API replicas do not share counters. `RATE_LIMIT_PER_MINUTE` is present in settings but the dependency is currently constructed with a fixed limit of 120 (`backend/app/api/deps.py:13`).
+
+## 7. Webhook contract
+
+`POST /api/v1/billing/webhooks/{provider}` is the only path that can change paid entitlement. Evidence: `backend/app/api/routes/billing.py` and `backend/app/billing/payments.py` (`PaymentService.verify_webhook` / `handle_verified_event`).
+
+| Provider | Signature source | Verification |
+| --- | --- | --- |
+| `razorpay` | `x-razorpay-signature` | HMAC-SHA256 of the **raw body** with `RAZORPAY_WEBHOOK_SECRET`, compared with `hmac.compare_digest` |
+| `stripe` | `stripe-signature` | Parse `t=`/`v1=` parts, HMAC-SHA256 of `t + "." + raw body` with `STRIPE_WEBHOOK_SECRET`, accept any matching `v1`, reject timestamps more than 300 seconds old |
+
+Flow and semantics:
+
+1. Missing secret or signature → **400** `invalid webhook`. Unknown provider → **404**.
+2. Event id is taken from `id` or `event_id`; missing id → 400. If `payments.provider_event_id` already exists, response is `{"status":"already_processed","event_id":...}` and no second state change occurs.
+3. Event type comes from `event` or `type`. Activation allowlist: `payment.captured`, `order.paid`, `subscription.charged`, `checkout.session.completed`, `invoice.payment_succeeded`. Negative events `payment.failed`, `subscription.cancelled`, `customer.subscription.deleted`, `charge.refunded`, `refund.created` map to `cancelled`/`refunded`. All other verified events are recorded as `ignored` and never change entitlement.
+4. `user_id` comes from Razorpay `notes` (order, payment, subscription or refund entity — order notes are checked first) or Stripe `metadata`/`client_reference_id`; `plan_code` and `interval` default to `professional`/`monthly` when absent.
+5. For activation events, the event amount and currency are compared with the configured plan for the selected interval. Mismatches are recorded as `amount_mismatch`/`currency_mismatch` and do not change subscription state.
+6. On an allowed event with a user id, the subscription is upserted with `status`, `provider`, `plan_code`, `scan_limit`, `current_period_end` (now + 30 or + 365 days), `scans_used = 0` and `cancel_at_period_end`; the full verified event is appended to `payments`.
+7. Successful response: `{"status":"processed","event_id":...,"subscription_status":...}` for state-changing events, or `ignored`/`amount_mismatch`/`currency_mismatch` for non-activating events. An audit event `billing.webhook_processed` is recorded.
+
+Checkout is separate: `POST /billing/checkout` creates a provider order/session. Razorpay requires `RAZORPAY_KEY_ID`/`RAZORPAY_KEY_SECRET` and returns an order `checkout_id`, public `key_id`, display `name`/`description`, `mode`, amount and currency. The frontend loads the official Razorpay Checkout script and opens it with the server-created order id; its handler is display-only. Stripe requires `STRIPE_SECRET_KEY` and returns `checkout_url`. Both fail with 503 when unconfigured. The frontend `?checkout=success` / `?checkout=cancelled` redirect is display-only. See [RAZORPAY_SETUP.md](RAZORPAY_SETUP.md).
+
+## 8. Minimal examples
+
+```bash
+# Public capability check
+curl -s http://localhost:8000/api/v1/system/config
+
+# Login, then submit a message with no external consent
+TOKEN=$(curl -s -X POST http://localhost:8000/api/v1/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"demo@hireshield.io","password":"DemoPass123!"}' | jq -r .access_token)
+
+curl -s -X POST http://localhost:8000/api/v1/analysis/message \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"text":"Pay a registration fee and share your OTP to get this job.","channel":"whatsapp","consent_external_lookups":false}'
+```
+
+The demo credentials above are development seed values from `backend/app/core/config.py`; production seeding is disabled when weak defaults are present. Do not treat them as configured production accounts.
+
+## 9. Verification
+
+Endpoint inventory and shapes were checked against the route decorators and Pydantic models in the files cited above. Backend tests: 64 passed (`python -m pytest backend/tests -q`). Frontend tests: 23 passed across 6 files (`npm test -- --run`); `npm run build` succeeds. A local `.env` configures Razorpay **test** keys and a webhook secret, verified through `/system/config` and a real test-order creation. Other integrations remain unconfigured; no live provider keys or signed webhook activation drill have been performed.
