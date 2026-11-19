@@ -2,6 +2,8 @@
 
 Use this guide to present the project honestly: what is built, what is actually wired, what is disabled, and what evidence proves it.
 
+For a visual opener, use the animated showcase page at <https://hireshield-web-j72o.onrender.com/showcase.html>. Its source is `frontend/public/showcase.html`; it uses only inline HTML/CSS/JS and has no external runtime dependencies.
+
 ## 1. One-line pitch
 
 > HireShield AI is an explainable recruitment-fraud decision-support app: FastAPI + MongoDB Atlas + approved scikit-learn text models + a React frontend, deployed as a free Render evaluation stack with a docs-backed support chatbot.
@@ -202,7 +204,7 @@ flowchart LR
 | ML governance | `backend/models/model_manifest.json` approval flags and metrics |
 | Deployment record | `docs/RENDER_DEPLOYMENT.md` |
 | Launch status | `docs/LAUNCH_READINESS.md` |
-| Latest demo code | GitHub commit `7509dfe` on `main` |
+| Latest demo code | Pushed `origin/main` in the GitHub repository |
 
 ---
 
