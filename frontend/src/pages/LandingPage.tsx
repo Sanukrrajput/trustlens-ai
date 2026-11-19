@@ -18,7 +18,6 @@ import {
   Sparkles,
   Users,
 } from 'lucide-react';
-import { ArchitectureScene3D } from '../components/ArchitectureScene3D';
 import { EvidenceTable } from '../components/EvidenceTable';
 import { RiskGauge } from '../components/RiskGauge';
 import { Badge, Card, SkeletonBlock } from '../components/ui';
@@ -199,7 +198,6 @@ export function LandingPage() {
               <span className="inline-flex items-center gap-1.5"><Sparkles className="h-4 w-4 text-warn" /> Honest uncertainty</span>
             </div>
           </div>
-          <div id="demo" className="animate-fade-up lg:fixed lg:right-8 lg:top-20 lg:z-30 lg:w-[420px]"><ArchitectureScene3D /></div>
         </div>
       </section>
 
@@ -207,7 +205,7 @@ export function LandingPage() {
         <div className="mb-10 max-w-2xl">
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-brand-600 dark:text-brand-400">Sample investigation</p>
           <h2 className="section-title mt-2">What the evidence actually looks like</h2>
-          <p className="mt-3 text-sm text-muted">The 3D architecture animation above is illustrative. This sample report shows the risk components, sources and limitations the real workflow produces.</p>
+          <p className="mt-3 text-sm text-muted">The 3D architecture animation in the corner widget is illustrative. This sample report shows the risk components, sources and limitations the real workflow produces.</p>
         </div>
         <DemoAnalysis />
       </section>

@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { Route, Routes, useLocation } from 'react-router-dom';
+import { ArchitectureWidget } from './components/ArchitectureWidget';
 import { AppLayout } from './components/Layout';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { PublicLayout } from './components/PublicLayout';
@@ -35,6 +36,7 @@ export function App() {
     <AuthProvider>
       <ScrollToTop />
       <SupportWidget />
+      <ArchitectureWidget />
       <Routes>
         <Route element={<PublicLayout />}>
           <Route index element={<LandingPage />} />
