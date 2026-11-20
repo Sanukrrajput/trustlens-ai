@@ -157,9 +157,14 @@ cd ..
 docker compose config --quiet
 .\.venv\Scripts\python.exe scripts/secret_scan.py
 .\.venv\Scripts\python.exe -m pip check
+.\.venv\Scripts\python.exe -m pip_audit --requirement backend\requirements.txt --format json
+
+# Dependency audits: both returned 0 vulnerabilities
+cd frontend
+npm audit --json
 ```
 
-All checks above passed. `npm audit --omit=dev --audit-level=high` exited 0 with **0 high/critical** advisories (2 moderate React Router advisories remain). `pip-audit` reported `python-jose`/`ecdsa` advisories with no published fix versions; mitigations are documented in [docs/SECURITY.md](docs/SECURITY.md). Container *image builds* were not verified locally because the Docker daemon was not running; CI runs both builds. Full details are in [docs/TESTING.md](docs/TESTING.md).
+All checks above passed. `npm audit --json` and `pip-audit --format json` both report **0 vulnerabilities** after replacing `python-jose` with `PyJWT` and upgrading React Router to 7.x plus the Vite/Vitest toolchain. Both audits are blocking CI checks. Container *image builds* were not verified locally because the Docker daemon was not running; CI runs both builds. Full details are in [docs/TESTING.md](docs/TESTING.md).
 
 ---
 
@@ -188,7 +193,7 @@ The canonical template is [`.env.example`](.env.example). Empty values mean “n
 * **No paid access from the browser.** Checkout initiation is server-side; only signed provider webhooks change subscription state.
 * **Models are limited.** Two English-language, text-only EMSCAD job models are approved; message and anomaly models were rejected and the runtime falls back to explicit rule scorers. See [DEVELOPMENT_STATUS.md](DEVELOPMENT_STATUS.md) for the active manifest and metrics.
 * **Local fallback is not production.** The in-memory store and eager Celery execution are development conveniences. Production fails closed when MongoDB is unavailable.
-* **Not launch-ready.** Legal drafts are unreviewed, no production secrets or **live** payment provider are configured (only Razorpay test keys), container images were not built locally, and there is no penetration test or production deployment evidence. Stage 8 added real secret/dependency audits; open advisories and mitigations are listed in [docs/SECURITY.md](docs/SECURITY.md). See [docs/LAUNCH_READINESS.md](docs/LAUNCH_READINESS.md).
+* **Not launch-ready.** Legal drafts are unreviewed, no production secrets or **live** payment provider are configured (only Razorpay test keys), container images were not built locally, and there is no penetration test or production deployment evidence. Secret and dependency audits are clean and blocking in CI; details are in [docs/SECURITY.md](docs/SECURITY.md). See [docs/LAUNCH_READINESS.md](docs/LAUNCH_READINESS.md).
 * **Repository state.** The repository is pushed to `origin/main` with a free Render evaluation deployment live. Protected branches, release approvals and a production deployment process are still required before launch.
 * **Legacy code.** The previous SOC application is preserved under `legacy-threat-intel/` for reference. It is **not** active code, is not referenced by the running application or Compose files, and should not be described as part of the TrustLens AI product.
 

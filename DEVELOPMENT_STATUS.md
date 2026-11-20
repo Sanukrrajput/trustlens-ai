@@ -1,6 +1,6 @@
 # TrustLens AI — Development Status
 
-**Snapshot date:** 20 November 2026 (Stages 1–8 complete; all changes remain uncommitted)
+**Snapshot date:** 20 November 2026 (Stages 1–8 complete; dependency advisories resolved; committed)
 **Overall assessment:** functional, tested prototype with deployable scaffolding. **Not fully launch-ready.** Local/demo operation is supported; production launch is blocked by configuration, security, legal, integration and operational gaps listed below.
 
 All statements below are derived from files in this repository or from commands executed in this working tree. Nothing here should be read as evidence of a live production deployment.
@@ -26,7 +26,7 @@ All statements below are derived from files in this repository or from commands 
 | Browser extension and mobile plan | **Done (extension) / plan only (mobile)** | MV3 extension with `activeTab`/`scripting`/`storage`, click-time host permission and 6 contract tests; React Native Share Intent/permission policy documented in `mobile-app/`. |
 | Security hardening | **Done with documented residual risk** | Argon2, JWT rotate/revoke, RBAC, upload validation, SSRF protections, audit log, security headers, configurable rate limits, request IDs, secret scan, dependency-audit CI and enforced retention. Shared rate limiting, TLS/host configuration and open dependency advisories remain operational work. |
 | Legal and compliance | **Not done** | Draft Terms, Privacy, DPA, Acceptable Use, cookie/consent and takedown sections exist in `docs/LEGAL_DRAFTS.md` and draft UI pages, but have not been reviewed by qualified counsel. Retention is technically enforced; the legally approved schedule, signed DPA and process inventory are still missing. |
-| Production operations | **Partial** | No provisioned production database/broker, TLS termination, alerting, runbook ownership, shared rate-limit layer or release history. A backup/verify/restore tool and restore drill test now exist. Workspace is a git repository with an uncommitted working tree; no commit has been made by this work. |
+| Production operations | **Partial** | No provisioned production database/broker, TLS termination, alerting, runbook ownership, shared rate-limit layer or release history. A backup/verify/restore tool and restore drill test now exist. Workspace is a git repository with a clean working tree after the remediation commit; no push or deployment has been made. |
 
 ---
 
@@ -38,10 +38,10 @@ Executed in this working tree:
 | --- | --- | --- |
 | Backend suite | `.\.venv\Scripts\python.exe -m pytest backend/tests -q --tb=line` | **111 passed** in 23.49 s across 10 files (deprecation-warning noise only). |
 | Frontend suite | `npm run test -- --run` (in `frontend/`) | **29 passed** across **7 test files**. React Router future-flag warnings were emitted, not failures. |
-| Frontend build | `npm run build` | **Passed**: `tsc --noEmit && vite build`, 2222 modules transformed, `dist/` emitted in 6.04 s. |
+| Frontend build | `npm run build` | **Passed**: `tsc --noEmit && vite build`, 1991 modules transformed, `dist/` emitted in 1.69 s. |
 | Extension contract | `npm test` (in `browser-extension/`) | **6 passed**. |
 | Compose / compile / lint | `docker compose config --quiet`, `compileall`, `ruff check` | **Passed**. |
-| Secret / dependency checks | `python scripts/secret_scan.py`, `pip check`, `npm ls --omit=dev`, `npm audit --omit=dev --audit-level=high`, `pip-audit --format json` | Secret scan `ok` over 269 files; consistent dependency trees; npm exit 0 with 0 high/critical and 2 moderate advisories; pip-audit reported 3 findings in `python-jose`/`ecdsa` with no fixed versions (report-only in CI). |
+| Secret / dependency checks | `python scripts/secret_scan.py`, `pip check`, `npm ls --omit=dev`, `npm audit --json`, `pip-audit --format json` | Secret scan `ok` over 299 files; consistent dependency trees; both full audits report 0 vulnerabilities and are blocking CI checks. |
 | Container image builds | `docker build --file backend/Dockerfile ...` / `frontend/Dockerfile` | **Not verified locally** — Docker daemon (`npipe:////./pipe/dockerDesktopLinuxEngine`) was not running. CI workflow performs both builds. |
 
 Backend suite composition: `test_api.py` (auth lifecycle, remembered sign-ins/device recognition, sign-in activity ownership, new-device notification, Turnstile enforcement and fail-closed provider outage, analysis/report/feedback flow, consent behaviour, plan/checkout configuration failure, signed webhook activation, RBAC, company/monitoring CRUD and notifications), `test_ml.py` (data validation, synthetic-data honesty, features, metrics, inference contract, fallback behaviour, manifest gating, risk behaviour, training approval rules), `test_intelligence.py` (extraction, message analysis, SSRF cases, unconfigured-source honesty, lookalike heuristics, rule indicators, consent gates, limited anomaly mode).
@@ -90,7 +90,7 @@ The runtime loads only `approved: true` artifacts. When none is available or loa
 | Razorpay / Stripe | Razorpay **test mode configured locally** (`mode=test`, real test order created); webhook secret generated but not registered in dashboard, so no signed activation drill yet. Stripe remains unconfigured and returns `503`. Only verified webhooks activate plans. | `billing/payments.py`, `routes/billing.py`, `docs/RAZORPAY_SETUP.md`. |
 | Approved job sources | **None configured** (`JOB_SOURCE_URLS` empty); monitoring will not fetch arbitrary sites. | Config; `system/config` flag. |
 | Demo/admin accounts | Seeded in development with documented weak defaults; auto-disabled in production when those weak defaults remain. Must be explicitly removed/rotated before launch. | `app/main.py::_seed_accounts`, `config.py` validator. |
-| Git / release provenance | **Git repository present with a dirty working tree; no commit, push or deployment made by this work.** | `.git` present at workspace root; `git status --short` shows uncommitted changes. |
+| Git / release provenance | **Git repository present with a clean working tree after the remediation commit; no push or deployment made by this work.** | `.git` present at workspace root; `git status --short` is empty after committing the Stage 1–8 work and dependency remediation. |
 
 ---
 

@@ -12,9 +12,10 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
+import jwt
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerifyMismatchError
-from jose import JWTError, jwt
+from jwt.exceptions import PyJWTError as JWTError
 
 from app.core.config import Settings
 

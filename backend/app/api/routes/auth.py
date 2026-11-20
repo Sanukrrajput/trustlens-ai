@@ -6,7 +6,7 @@ import secrets
 from typing import Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
-from jose import JWTError
+from jwt.exceptions import PyJWTError as JWTError
 
 from app.api.deps import enforce_rate_limit, get_app_settings, get_current_user, get_repositories
 from app.core.config import Settings

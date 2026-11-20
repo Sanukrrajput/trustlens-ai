@@ -329,7 +329,7 @@ Triggers: pushes to any branch, pull requests, and manual `workflow_dispatch`. I
 | `backend` | Python 3.12 setup, install `backend/requirements-dev.txt`, `python -m pip check`, `compileall` over app/tests/scripts, `python -m pytest backend/tests -q --tb=line`, training smoke into `${runner.temp}/hireshield-model-smoke` with `--log-level WARNING`. |
 | `frontend` | Node 20 setup, `npm ci`, `npm ls --omit=dev`, `npm run build`, `npm run test -- --run` from `frontend/`. |
 | `browser-extension` | Node 20 setup and `npm test` from `browser-extension/` (permission and extraction contract tests). |
-| `security` | Blocking `python scripts/secret_scan.py`; report-only `pip-audit` and `npm audit --omit=dev --audit-level=high` JSON artifacts. Dependency updates are handled by `.github/dependabot.yml`. |
+| `security` | Blocking `python scripts/secret_scan.py`, blocking `pip-audit`, and blocking full `npm audit --json`; JSON reports are still uploaded as artifacts. Dependency updates are handled by `.github/dependabot.yml`. |
 | `containers` | `docker compose config --quiet`, build `hireshield-api:ci` from `backend/Dockerfile`, build `hireshield-frontend:ci` from `frontend/Dockerfile`. |
 
 ### `.github/workflows/container-release.yml`
@@ -356,6 +356,6 @@ docker compose pull && docker compose up -d
 - Model artifacts are copied into the backend image; retraining does not automatically update a running container.
 - Health checks cover HTTP readiness and datastore pings but do not validate Celery beat schedules, queue depth, external integrations, or backup integrity.
 - MongoDB/Redis data durability depends on the named volumes and the operator procedures above. A logical backup/verify/restore tool is included, but scheduling, encryption at rest and restore drills remain operator responsibilities.
-- `pip-audit` reports `python-jose`/`ecdsa` advisories without published fixes; npm reports two moderate React Router advisories. See [SECURITY.md](SECURITY.md) for mitigations and upgrade path.
+- Dependency audits are currently clean after replacing `python-jose` with `PyJWT` and upgrading the frontend router/toolchain. Keep the blocking CI audits and Dependabot updates enabled; see [SECURITY.md](SECURITY.md).
 - Development falls back to in-memory MongoDB and eager Celery; that behavior is intentionally unavailable in production.
 - In this working tree `docker compose config --quiet` passed, but Docker image builds could not be executed locally because the Docker daemon was unavailable. CI performs those builds on a runner with Docker.

@@ -13,7 +13,7 @@
 | `legacy-threat-intel/.env.backup` | No, gitignored | Historical artifact; never read by the application or Compose. Rotate anything that was ever real and delete it when possible. |
 | `backups/` | No, gitignored | Logical backup output. Contains personal data; encrypt and restrict permissions. |
 
-`scripts/secret_scan.py` runs in CI as a blocking check: it fails if a tracked file name starts with `.env` (except `.env.example`), if anything under `backups/` is tracked, or if tracked text contains common credential patterns or private-key blocks. Final local run: `status: ok`, 269 files scanned, no findings.
+`scripts/secret_scan.py` runs in CI as a blocking check: it fails if a tracked file name starts with `.env` (except `.env.example`), if anything under `backups/` is tracked, or if tracked text contains common credential patterns or private-key blocks. Final local run: `status: ok`, 299 files scanned, no findings.
 
 ## 2. Precedence and scope
 

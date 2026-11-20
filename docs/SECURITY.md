@@ -59,7 +59,7 @@ This document describes the security posture that is actually implemented in thi
 | Retention enforcement | `RETENTION_DAYS` and `AUDIT_RETENTION_DAYS` drive real deletions, with shorter caps for notifications (180 days), support chats (30), domain cache (30) and task status (7). A nightly Celery task and an admin-only trigger run the same service; each run writes an audit event. | `backend/app/services/retention_service.py`, `backend/app/workers/tasks.py`, `backend/app/workers/celery_app.py`, `backend/app/api/routes/system.py`, `docs/RETENTION.md` |
 | Backup/restore drill | JSONL logical backups include per-collection SHA-256 manifests; `verify` checks hashes and counts; `restore` refuses without `--confirm`. Backups are gitignored and contain personal data, so operator-side encryption and permissions are required. | `scripts/backup_tool.py`, `.gitignore`, `docs/DEPLOYMENT.md` |
 | Secret hygiene | `scripts/secret_scan.py` runs in CI as a blocking check over tracked files, rejecting tracked `.env`/backup files and common credential patterns. | `scripts/secret_scan.py`, `.github/workflows/ci.yml` |
-| Dependency auditing | CI installs `pip-audit` and runs `npm audit --omit=dev --audit-level=high`, uploading JSON reports as artifacts. `pip check` and `npm ls --omit=dev` are also enforced. Dependabot opens weekly pip/npm and monthly Actions updates. | `.github/workflows/ci.yml`, `.github/dependabot.yml` |
+| Dependency auditing | CI installs `pip-audit` and runs blocking `pip-audit` plus a blocking full `npm audit --json`, uploading JSON reports as artifacts even on failure. `pip check` and `npm ls --omit=dev` are also enforced. Dependabot opens weekly pip/npm and monthly Actions updates. | `.github/workflows/ci.yml`, `.github/dependabot.yml` |
 
 ## Secret management
 
@@ -162,12 +162,12 @@ These are operator notes, not an automated playbook.
 | Frontend build | `npm run build` | **Passed** (`tsc --noEmit && vite build`) |
 | Extension contract | `npm test` in `browser-extension/` | **6 passed** |
 | Lint / compile / config | `ruff check backend/app backend/tests backend/scripts scripts`, `compileall`, `docker compose config --quiet` | **Passed** |
-| Secret hygiene | `python scripts/secret_scan.py` | `status: ok`, 269 tracked files scanned, no findings, no tracked `.env` or backups |
+| Secret hygiene | `python scripts/secret_scan.py` | `status: ok`, 299 tracked files scanned, no findings, no tracked `.env` or backups |
 | Dependency consistency | `python -m pip check`, `npm ls --omit=dev` | **Passed** (no broken requirements; valid production tree) |
-| Python dependency audit | `python -m pip_audit --requirement backend/requirements.txt --format json` | **3 findings in 2 packages** (below); CI job is report-only and uploads JSON |
-| JavaScript dependency audit | `npm audit --omit=dev --audit-level=high --json` in `frontend/` | Exit **0**: 0 high/critical, 2 moderate React Router advisories, 49 production dependencies |
+| Python dependency audit | `python -m pip_audit --requirement backend/requirements.txt --format json` | **No known vulnerabilities**; blocking CI check with JSON artifact |
+| JavaScript dependency audit | `npm audit --json` in `frontend/` | **0 vulnerabilities** across 50 production and 222 development dependencies; blocking CI check with JSON artifact |
 
-Open Python advisories: `python-jose==3.5.0` (`PYSEC-2026-4298` / `CVE-2026-85394`) and its transitive `ecdsa==0.19.2` (`PYSEC-2026-1325` / `CVE-2024-23342`, reported twice). `pip-audit` reports no fixed versions. Mitigations already in place: `decode_token()` pins `algorithms=[settings.jwt_algorithm]` (HS256 with a symmetric secret by default), so the unauthenticated-algorithm and DER-public-key confusion path is not reachable through this application; the ecdsa Minerva issue affects signing/key generation/ECDH, while this service neither signs ECDSA tokens nor exposes an ECDSA verification path. The moderate npm advisories affect `react-router`/`react-router-dom` 6.x (open redirect via backslash and SSR hydration constructor injection); the app is a client-only SPA without SSR hydration, and remediation requires a semver-major upgrade to 7.x. These are documented as open risks, not simulated or suppressed.
+Dependency remediation: `python-jose`/`ecdsa` were replaced by `PyJWT==2.15.1`, removing the earlier asymmetric-key-confusion and Minerva advisories. `decode_token()` still pins `algorithms=[settings.jwt_algorithm]`. The frontend moved from React Router 6.x to 7.x and from Vite 5/Vitest 2 to Vite 8/Vitest 5, clearing the earlier open-redirect, SSR-hydration, dev-server and worker advisories. All application tests were re-run after the upgrades.
 
 ## Current limitations
 
@@ -187,7 +187,7 @@ Open Python advisories: `python-jose==3.5.0` (`PYSEC-2026-4298` / `CVE-2026-8539
 - Billing has Razorpay **test** credentials in the local (uncommitted) `.env`; Stripe remains unconfigured and returns `503 not configured`. A generated webhook secret exists but is not yet registered in the Razorpay dashboard, so no live signed activation has been exercised. Never treat test keys as production credentials.
 - SMTP/SMS settings are empty, so high-risk notifications are not delivered in the default configuration.
 - Retention is enforced for documents that carry the policy timestamp field; documents lacking that field are intentionally left alone, so collection-specific review is still needed.
-- `pip-audit` reports advisories in `python-jose`/`ecdsa` with no published fix versions; npm reports two moderate React Router advisories. See the verification evidence above for mitigations and upgrade path.
+- Dependency audits are currently clean, but they are point-in-time checks; keep blocking CI and Dependabot enabled and re-review on any dependency change.
 - There is no evidence of a penetration test, formal security certification, or completed privacy/legal review in this repository.
 - HSTS is emitted as a response header in production, but the shipped nginx service serves plain HTTP; TLS remains an operator responsibility.
 - The restrictive `Content-Security-Policy` is emitted by the API middleware; any richer browser UI served from the API origin must be reviewed against it.

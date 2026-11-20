@@ -177,10 +177,10 @@ The Node test runner checks the exact MV3 permission set, absence of background/
 
 cd frontend
 npm ls --omit=dev
-npm audit --omit=dev --audit-level=high --json
+npm audit --json
 ```
 
-Verified results: Ruff **passed**; secret scan `status: ok` over **269** tracked files with no findings; `pip check` and `npm ls --omit=dev` found consistent trees. `npm audit` exited 0 with 0 high/critical and 2 moderate React Router advisories. `pip-audit` exited 1 with 3 findings in `python-jose`/`ecdsa` and no published fixes; CI uploads the JSON as an artifact rather than hiding it. Details and mitigations are in [SECURITY.md](SECURITY.md).
+Verified results: Ruff **passed**; secret scan `status: ok` over **299** tracked files with no findings; `pip check` and `npm ls --omit=dev` found consistent trees. Both `npm audit --json` and `pip-audit --format json` reported **0 vulnerabilities** after the dependency remediation; both are blocking CI checks with JSON artifacts uploaded even on failure. Details are in [SECURITY.md](SECURITY.md).
 
 ### Container configuration checks
 
@@ -260,7 +260,7 @@ Runs the FastAPI app through `TestClient` against an isolated in-memory database
 | Frontend: `npm ci`, `npm run build` | `cd frontend && npm ci && npm ls --omit=dev && npm run build` |
 | Frontend: `npm run test -- --run` | `cd frontend && npm run test -- --run` |
 | Browser extension | `cd browser-extension && npm test` |
-| Security | `python scripts/secret_scan.py`, plus report-only `pip-audit` and `npm audit` artifact uploads |
+| Security | `python scripts/secret_scan.py`, blocking `pip-audit` and blocking full `npm audit`, with JSON artifact uploads |
 | Containers: config + builds | `docker compose config --quiet`, then the two `docker build` commands above |
 
 CI triggers on every branch push, pull requests, and manual dispatch. It performs no deployment. `container-release.yml` is separate: it publishes API and frontend images to GHCR on `main`, `v*` tags, or manual dispatch; rollout is an explicit server-side step described in [DEPLOYMENT.md](./DEPLOYMENT.md).
