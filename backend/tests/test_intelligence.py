@@ -1,4 +1,4 @@
-"""Tests for the HireShield explainable intelligence modules.
+"""Tests for the TrustLens explainable intelligence modules.
 
 All network calls are mocked; these tests never contact external services.
 """
@@ -21,6 +21,7 @@ from app.intelligence.company_verification import CompanyVerifier  # noqa: E402
 from app.intelligence.domain_analysis import DomainAnalyser  # noqa: E402
 from app.intelligence.extraction import extract_entities  # noqa: E402
 from app.intelligence.message_analysis import MessageAnalyser  # noqa: E402
+from app.intelligence.offer_rules import OFFER_CATEGORIES, build_offer_indicators  # noqa: E402
 from app.intelligence.rules import build_rule_indicators  # noqa: E402
 from app.intelligence.url_scanning import SafeURLFetcher  # noqa: E402
 from app.intelligence.url_scanning import safe_fetch as safe_fetch_module  # noqa: E402
@@ -449,3 +450,36 @@ def test_anomaly_engine_without_repos_is_limited():
         assert result["historical_counts"][key]["available"] is False
     assert result["model"]["status"] == "not_available"
     assert any("repository" in item for item in result["limitations"])
+
+
+def test_offer_rules_report_indicators_without_a_verdict():
+    text = (
+        "Congratulations, you have won a guaranteed prize! Share with 10 friends "
+        "and pay a processing fee to claim your reward. Share your OTP to confirm. Act now, today only."
+    )
+    indicators = build_offer_indicators(text, "giveaway")
+    names = {item["name"] for item in indicators}
+    assert {"offer_advance_payment", "offer_urgency", "offer_credential_request", "offer_giveaway_share_manipulation"} <= names
+    assert all(item["source"] == "offer_rules" for item in indicators)
+    assert all(item["independently_verified"] is False for item in indicators)
+    assert all("not proof of fraud" in item["description"] for item in indicators)
+    assert all(item["status"] in EVIDENCE_STATUSES for item in indicators)
+
+
+def test_offer_rules_do_not_flag_a_benign_offer():
+    indicators = build_offer_indicators(
+        "Community library book sale this Saturday. Books cost fifty rupees and all proceeds support the reading room.",
+        "promotion",
+    )
+    assert indicators == []
+
+
+def test_offer_categories_are_closed_and_category_specific():
+    assert set(OFFER_CATEGORIES) == {
+        "advertisement", "giveaway", "scholarship", "investment",
+        "recruitment", "promotion", "other",
+    }
+    scholarship = build_offer_indicators("Pay a scholarship processing fee to release your award.", "scholarship")
+    assert any(item["name"] == "offer_scholarship_fee" for item in scholarship)
+    # An unknown category must fall back safely, not raise.
+    assert build_offer_indicators("A normal promotional message.", "unknown") == []

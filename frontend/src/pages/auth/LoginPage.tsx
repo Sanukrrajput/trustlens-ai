@@ -122,7 +122,7 @@ export function LoginPage() {
           ? 'Administrator sign-in — manage users, models, plans and platform health.'
           : 'Sign in to continue your investigations.'
       }
-      footer={<>New to HireShield? <Link className="link" to="/register">Create an account</Link></>}
+      footer={<>New to TrustLens? <Link className="link" to="/register">Create an account</Link></>}
     >
       <form onSubmit={submit} noValidate className="space-y-5">
         <div role="group" aria-label="Sign-in area" className="grid grid-cols-2 gap-2 rounded-xl border border-line bg-elevated p-1">

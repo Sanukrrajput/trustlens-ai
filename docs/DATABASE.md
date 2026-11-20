@@ -1,4 +1,4 @@
-# HireShield AI — Database
+# TrustLens AI — Database
 
 Scope: MongoDB persistence implemented in `backend/app/db/mongo.py` and `backend/app/db/repositories.py`, plus the collections actually written by services, routes and workers. This document does not cover `legacy-threat-intel/`.
 
@@ -7,7 +7,7 @@ Scope: MongoDB persistence implemented in `backend/app/db/mongo.py` and `backend
 | Setting | Default | Compose value | Source |
 | --- | --- | --- | --- |
 | `MONGODB_URI` | `mongodb://localhost:27017` | `mongodb://mongodb:27017` | `backend/app/core/config.py`, `docker-compose.yml` |
-| `MONGODB_DB` | `hireshield` | `${MONGODB_DB:-hireshield}` | same |
+| `MONGODB_DB` | `trustlens` | `${MONGODB_DB:-trustlens}` | same |
 | `MONGODB_URI=mongomock://...` | in-memory test/dev mode | not used in Compose | `backend/app/db/mongo.py` |
 
 `MongoDBService(settings)` creates a `MongoClient` with `serverSelectionTimeoutMS=5000`, `maxPoolSize=20` and `tz_aware=True`. `connect()` forces an early `admin.command("ping")` so failures are observable at startup. `setup()` then:
@@ -39,7 +39,7 @@ Scope: MongoDB persistence implemented in `backend/app/db/mongo.py` and `backend
 | `plans` | `PlanRepository` | Five seeded plans; admin `PATCH /admin/plans/{code}` | none |
 | `task_status` | `TaskStatusRepository` | Celery task start/complete/fail status | `uniq_task`, 7-day TTL |
 | `reports` | `ReportRepository` | Cached base64 PDF and generation timestamp per analysis | `uniq_analysis_report` |
-| `user_reports` | `GenericRepository` | User feedback; admin review status/notes | `analysis_user` |
+| `user_reports` | `UserReportRepository` | Corrections and community claims with dedupe keys, reputation snapshots, moderation states and review metadata | `analysis_user`, `uniq_user_report_dedupe`, `report_duplicate_group`, `entity_moderation`; validator |
 | `token_blacklist` | `repos.blacklist` (`GenericRepository`) | Logout JWT `jti`; also queried by fingerprint in anomaly engine | none |
 | `model_registry` | `ModelRepository` | Training registers versions; admin reads active/all | `uniq_model_version` |
 | `platform_settings` | Direct `repos.mongo.db[...]` | `analytics_snapshot` from `aggregate_analytics` | none |
@@ -85,6 +85,9 @@ Exact definitions from `backend/app/db/mongo.py:92–155`:
 | `payments` | `uniq_payment` | `{provider_payment_id: 1}` unique, sparse |
 | `payments` | `uniq_event` | `{provider_event_id: 1}` unique, sparse |
 | `user_reports` | `analysis_user` | `{analysis_id: 1, user_id: 1}` |
+| `user_reports` | `uniq_user_report_dedupe` | `{dedupe_key: 1}` unique, sparse — one report per reporter/entity/claim |
+| `user_reports` | `report_duplicate_group` | `{duplicate_group_key: 1}` — groups claims for independent-reporter counts |
+| `user_reports` | `entity_moderation` | `{entity_key: 1, moderation_state: 1}` — community corroboration lookup |
 | `api_usage` | `uniq_usage_bucket` | `{user_id: 1, bucket: 1}` unique |
 | `audit_logs` | `actor_created` | `{actor_id: 1, created_at: -1}` |
 | `audit_logs` | `audit_ttl` | `{created_at: 1}`, `expireAfterSeconds=63072000` (730 days) |
@@ -102,14 +105,15 @@ Validators require:
 | `fraud_analyses` | `user_id`, `analysis_type`, `status`, `created_at`, `risk` (object) |
 | `notifications` | `user_id`, `kind`, `title`, `created_at` |
 | `audit_logs` | `actor_id`, `action`, `created_at` |
+| `user_reports` | `analysis_id`, `user_id`, `category`, `report_type`, `status`, `moderation_state`, `created_at`; `category` enum `correction/community`, `moderation_state` enum `pending/verified/corroborated/false_report/dismissed` |
 
 ## 4. Retention and data lifecycle
 
 - MongoDB TTL indexes perform asynchronous deletion via the server's TTL monitor; expiry is not instantaneous and depends on mongod running.
-- Effective TTLs are **hard-coded in `mongo.py`**: analyses 365 days, notifications 180 days, domain cache 30 days, audit logs 730 days, task status 7 days.
-- `RETENTION_DAYS` and `AUDIT_RETENTION_DAYS` exist in `backend/app/core/config.py:61–62` but are not referenced by the TTL definitions or any purge job in the current backend. Do not assume changing those settings changes retention.
-- No cascade is implemented: deleting/expiring a `fraud_analyses` document does not remove related `risk_indicators`, `reports` or `user_reports` in application code, and those collections have no declared TTL.
-- Idempotency and dedupe are enforced by unique indexes: `(client_request_id, user_id)` for analyses, `dedupe_key` for notifications, `provider_event_id` for webhook payments, `(user_id, bucket)` for API usage.
+- TTL seconds in `mongo.py` remain **hard-coded** (analyses 365 days, notifications 180, domain cache 30, audit logs 730, task status 7) and are now an asynchronous safety net only.
+- `RETENTION_DAYS` and `AUDIT_RETENTION_DAYS` are authoritative for the Stage 8 purge in `backend/app/services/retention_service.py`; it also covers `risk_indicators`, `reports`, `user_reports`, `health_checks`, `signin_events` and `api_usage`, with shorter caps for notifications/support chats/domain cache/task status. See [RETENTION.md](RETENTION.md).
+- No cascade is implemented: deleting a `fraud_analyses` document does not remove related documents by reference. The purge treats each collection independently under its own policy.
+- Idempotency and dedupe are enforced by unique indexes: `(client_request_id, user_id)` for analyses, `dedupe_key` for notifications, `provider_event_id` for webhook payments, `(user_id, bucket)` for API usage, and `dedupe_key` (reporter + entity + normalised claim) for `user_reports`. Duplicate reports reuse the original document; different reporters on the same claim remain distinct.
 
 ## 5. Failure and fallback behaviour
 
@@ -121,20 +125,20 @@ Validators require:
 
 ## 6. Backup and restore (MongoDB)
 
-All commands below target the local Compose database name `hireshield`; substitute your `MONGODB_DB` if changed.
+All commands below target the local Compose database name `trustlens`; substitute your `MONGODB_DB` if changed.
 
 ### Backup
 
 ```bash
 # Consistent offline-style dump from the Compose MongoDB container
-docker compose exec mongodb mongodump --db hireshield --out /tmp/hireshield-backup
-docker compose cp mongodb:/tmp/hireshield-backup ./backup/hireshield-backup
+docker compose exec mongodb mongodump --db trustlens --out /tmp/trustlens-backup
+docker compose cp mongodb:/tmp/trustlens-backup ./backup/trustlens-backup
 
 # Alternative when mongod is reachable from the host
-mongodump --uri "mongodb://localhost:27017/hireshield" --out ./backup
+mongodump --uri "mongodb://localhost:27017/trustlens" --out ./backup
 ```
 
-For a live production replica set, prefer `mongodump --uri "mongodb://.../hireshield?replicaSet=rs0" --oplog --out ./backup` for a point-in-time-consistent snapshot. The bundled Compose MongoDB is a standalone instance with no oplog-based consistency guarantee.
+For a live production replica set, prefer `mongodump --uri "mongodb://.../trustlens?replicaSet=rs0" --oplog --out ./backup` for a point-in-time-consistent snapshot. The bundled Compose MongoDB is a standalone instance with no oplog-based consistency guarantee.
 
 ### Restore
 
@@ -142,8 +146,8 @@ For a live production replica set, prefer `mongodump --uri "mongodb://.../hiresh
 # Pause writers first (recommended)
 docker compose stop api worker beat
 
-docker compose cp ./backup/hireshield-backup mongodb:/tmp/hireshield-backup
-docker compose exec mongodb mongorestore --db hireshield --drop /tmp/hireshield-backup/hireshield
+docker compose cp ./backup/trustlens-backup mongodb:/tmp/trustlens-backup
+docker compose exec mongodb mongorestore --db trustlens --drop /tmp/trustlens-backup/trustlens
 
 docker compose start api worker beat
 ```
@@ -152,7 +156,7 @@ docker compose start api worker beat
 
 ```bash
 curl -fsS http://localhost:${API_PORT:-8000}/health
-docker compose exec mongodb mongosh --quiet --eval 'db.getSiblingDB("hireshield").getCollectionNames().length'
+docker compose exec mongodb mongosh --quiet --eval 'db.getSiblingDB("trustlens").getCollectionNames().length'
 ```
 
 Include `mongodb_data` in disaster-recovery planning; it is the named Compose volume holding the database files. Redis holds only broker/result state and is not part of the durable business-data backup.

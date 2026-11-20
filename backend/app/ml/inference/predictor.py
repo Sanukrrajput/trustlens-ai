@@ -404,6 +404,31 @@ class TextPredictor:
             )
         return result
 
+    def predict_offer(self, text: str, offer_category: str = "other") -> dict[str, Any]:
+        """Score generic offer text with transparent rules only.
+
+        No general-offer artifact is approved in the model manifest. The
+        recruitment-text models are deliberately NOT reused for arbitrary
+        offers, so the output is named ``offer_rule_fallback`` and states that
+        limitation. ``offer_category`` is recorded for triage but does not
+        condition the rules, which prevents an unsupported model claim.
+        """
+        raw, contributions = self._rule_text_signals(text)
+        probability = _clamp(1.0 - math.exp(-raw / 3.5), 0.0, 0.88)
+        confidence = _clamp(0.12 + min(raw, 10.0) * 0.03, 0.0, 0.42)
+        return _fallback_prediction(
+            model_name="offer_rule_fallback",
+            fraud_probability=probability,
+            confidence=confidence,
+            contributions=contributions,
+            limitations=[
+                "No general-offer text model is approved; transparent rules were used instead.",
+                f"Offer category '{offer_category}' was recorded but did not condition the rules.",
+            ],
+            suspicious=probability >= 0.55,
+            enough_signal=len(normalize_text(text).split()) >= 4,
+        )
+
     def predict_anomaly(self, feature_vector: dict[str, float]) -> dict[str, Any]:
         """Score a structured feature mapping for anomaly-like fraud patterns."""
         payload = self._load(FAMILY_ANOMALY_IFOREST) or self._load(FAMILY_ANOMALY_BOOSTED)

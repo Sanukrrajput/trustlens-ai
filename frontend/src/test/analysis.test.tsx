@@ -13,6 +13,7 @@ vi.mock('../lib/api', async (importOriginal) => {
     ...actual,
     analysisApi: {
       submitJob: vi.fn(),
+      submitOffer: vi.fn(),
       submitMessage: vi.fn(),
       submitUrl: vi.fn(),
       submitDocument: vi.fn(),
@@ -40,8 +41,9 @@ function renderScanner() {
 
 describe('analysis workflow', () => {
   beforeEach(() => {
-    vi.mocked(analysisApi.submitJob).mockResolvedValue(task);
-    vi.mocked(resolveAnalysis).mockResolvedValue({ id: 'report-1', status: 'completed' });
+    vi.mocked(analysisApi.submitJob).mockReset().mockResolvedValue(task);
+    vi.mocked(analysisApi.submitOffer).mockReset().mockResolvedValue(task);
+    vi.mocked(resolveAnalysis).mockReset().mockResolvedValue({ id: 'report-1', status: 'completed' });
   });
 
   it('blocks submission when the job text is too short', async () => {
@@ -87,6 +89,36 @@ describe('analysis workflow', () => {
 
     expect(await screen.findByText(/enter a valid http\(s\) url/i)).toBeInTheDocument();
     expect(analysisApi.submitUrl).not.toHaveBeenCalled();
+  });
+
+  it('submits a generic offer with its category and opens the report', async () => {
+    const user = userEvent.setup();
+    vi.mocked(analysisApi.submitOffer).mockResolvedValue(task);
+    renderScanner();
+
+    await user.click(screen.getByRole('tab', { name: /^offer$/i }));
+    const description = 'Congratulations! You have won a guaranteed prize. Share this post with 10 friends and pay a small processing fee to claim your reward today.';
+    await user.type(screen.getByLabelText(/offer text/i), description);
+    await user.selectOptions(screen.getByLabelText(/offer category/i), 'giveaway');
+    await user.click(screen.getByRole('button', { name: /run analysis/i }));
+
+    expect(await screen.findByText('Report opened')).toBeInTheDocument();
+    await waitFor(() => expect(analysisApi.submitOffer).toHaveBeenCalledTimes(1));
+    expect(analysisApi.submitOffer).toHaveBeenCalledWith(
+      expect.objectContaining({ text: description, offer_category: 'giveaway' }),
+    );
+  });
+
+  it('blocks an offer submission with too little text', async () => {
+    const user = userEvent.setup();
+    renderScanner();
+
+    await user.click(screen.getByRole('tab', { name: /^offer$/i }));
+    await user.type(screen.getByLabelText(/offer text/i), 'short');
+    await user.click(screen.getByRole('button', { name: /run analysis/i }));
+
+    expect(await screen.findByText(/paste at least 20 characters of the offer/i)).toBeInTheDocument();
+    expect(analysisApi.submitOffer).not.toHaveBeenCalled();
   });
 
   it('passes an immediate analysis result through without blocking', async () => {

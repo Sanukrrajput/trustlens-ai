@@ -11,7 +11,7 @@ import hmac
 import json
 import logging
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 from typing import Any
 from urllib.parse import urlencode
 
@@ -104,7 +104,7 @@ class PaymentService:
             "checkout_url": None,
             "amount": amount,
             "currency": currency,
-            "name": f"HireShield AI — {plan['name']}",
+            "name": f"TrustLens AI — {plan['name']}",
             "description": f"{interval.capitalize()} subscription",
             "mode": razorpay_mode(self.settings.razorpay_key_id),
             "order": order,
@@ -134,7 +134,7 @@ class PaymentService:
             "line_items[0][quantity]": "1",
             "line_items[0][price_data][currency]": currency.lower(),
             "line_items[0][price_data][unit_amount]": str(amount),
-            "line_items[0][price_data][product_data][name]": f"HireShield AI {plan['name']} ({interval})",
+            "line_items[0][price_data][product_data][name]": f"TrustLens AI {plan['name']} ({interval})",
             "metadata[user_id]": user_id,
             "metadata[plan_code]": plan["code"],
             "metadata[interval]": interval,

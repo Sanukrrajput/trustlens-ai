@@ -11,7 +11,8 @@ from fastapi.responses import StreamingResponse
 from app.api.deps import get_current_user, get_repositories, require_admin
 from app.core.security import utcnow
 from app.db.repositories import Repositories
-from app.schemas import UserReportCreate, UserReportOut
+from app.schemas import CommunityReportCreate, UserReportCreate, UserReportOut
+from app.services.community_service import submit_report
 from app.utils.reporting import generate_analysis_pdf, generate_csv
 from app.utils.serialization import doc_out, json_safe
 
@@ -27,6 +28,11 @@ def _owned_analysis(analysis_id: str, repos: Repositories, user: dict[str, Any])
     return doc
 
 
+def _report_out(document: dict[str, Any]) -> UserReportOut:
+    data = doc_out(document) or {}
+    return UserReportOut(**data)
+
+
 # Static paths are registered before the dynamic /{analysis_id} route.
 @router.post("/feedback", response_model=UserReportOut)
 def submit_feedback(
@@ -34,18 +40,49 @@ def submit_feedback(
     repos: Repositories = Depends(get_repositories),
     user: dict[str, Any] = Depends(get_current_user),
 ) -> UserReportOut:
-    _owned_analysis(payload.analysis_id, repos, user)
-    doc = repos.user_reports.insert(
-        {
-            **payload.model_dump(),
-            "user_id": str(user["id"]),
-            "status": "pending_review",
-            "reviewed_by": None,
-            "created_at": utcnow(),
-        }
+    """Submit a correction to a specific assessment.
+
+    Corrections are stored with ``category='correction'`` and can never become
+    community evidence, even if a moderator later takes action on them.
+    """
+
+    analysis = _owned_analysis(payload.analysis_id, repos, user)
+    document, _duplicate = submit_report(
+        repos=repos,
+        analysis_doc=analysis,
+        user_id=str(user["id"]),
+        category="correction",
+        report_type=payload.report_type,
+        details=payload.details,
+        evidence_url=payload.evidence_url,
     )
-    data = doc_out(doc) or {}
-    return UserReportOut(**data)
+    return _report_out(document)
+
+
+@router.post("/community", response_model=UserReportOut)
+def submit_community_report(
+    payload: CommunityReportCreate,
+    repos: Repositories = Depends(get_repositories),
+    user: dict[str, Any] = Depends(get_current_user),
+) -> UserReportOut:
+    """Submit a community allegation about the entity behind an analysis.
+
+    Duplicate submissions by the same reporter return the original report with
+    ``duplicate=true``. Reports by different reporters remain distinct so that
+    independent corroboration can be counted honestly.
+    """
+
+    analysis = _owned_analysis(payload.analysis_id, repos, user)
+    document, _duplicate = submit_report(
+        repos=repos,
+        analysis_doc=analysis,
+        user_id=str(user["id"]),
+        category="community",
+        report_type=payload.claim_type,
+        details=payload.details,
+        evidence_url=payload.evidence_url,
+    )
+    return _report_out(document)
 
 
 @router.get("/export/analyses.csv")
@@ -72,7 +109,7 @@ def export_analyses_csv(
     return StreamingResponse(
         iter([content]),
         media_type="text/csv",
-        headers={"Content-Disposition": 'attachment; filename="hireshield-analyses.csv"'},
+        headers={"Content-Disposition": 'attachment; filename="trustlens-analyses.csv"'},
     )
 
 
@@ -108,5 +145,5 @@ def download_pdf(analysis_id: str, repos: Repositories = Depends(get_repositorie
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="hireshield-report-{analysis_id}.pdf"'},
+        headers={"Content-Disposition": f'attachment; filename="trustlens-report-{analysis_id}.pdf"'},
     )

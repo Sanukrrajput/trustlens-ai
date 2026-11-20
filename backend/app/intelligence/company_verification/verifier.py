@@ -11,7 +11,6 @@ import html
 import re
 from datetime import datetime, timezone
 from typing import Any
-from urllib.parse import quote
 
 import requests
 

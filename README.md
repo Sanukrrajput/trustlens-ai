@@ -1,10 +1,10 @@
-# HireShield AI
+# TrustLens AI
 
-**Explainable recruitment-fraud intelligence for job seekers, universities and employers.**
+**Explainable online-offer verification and digital fraud intelligence for ordinary internet users.**
 
-HireShield AI is a commercial SaaS product that screens job postings, recruiter messages, URLs and documents for recruitment-fraud indicators. It combines text models, transparent rules, consent-gated public-source intelligence and historical patterns into an evidence-backed risk assessment. Every score is accompanied by the signals that produced it, the sources that were attempted, the sources that succeeded, and explicit limitations.
+TrustLens AI screens offers, advertisements, giveaways, scholarships, investments, promotions, recruitment messages, URLs and screenshots for fraud indicators. It combines transparent rules, consent-gated public-source intelligence and historical patterns into an evidence-backed assessment. Every score is accompanied by the signals that produced it, the sources that were attempted, the sources that succeeded, and explicit limitations. Recruitment Fraud is supported as one offer category; the approved text models are recruitment-specific and are never presented as general-offer models. See [TRUSTLENS_ARCHITECTURE.md](docs/TRUSTLENS_ARCHITECTURE.md) and [TRUSTLENS_ROADMAP.md](docs/TRUSTLENS_ROADMAP.md).
 
-> **Honest framing:** HireShield AI is a decision-support tool, not a background-check bureau, legal adviser, fraud insurer or guarantee of legitimacy. A low score is not proof that an opportunity is safe; an inconclusive score means the available evidence was insufficient. See the [Honesty and current limits](#honesty-and-current-limits) section.
+> **Honest framing:** TrustLens AI is a decision-support tool, not a background-check bureau, legal adviser, fraud insurer or guarantee of legitimacy. A low score is not proof that an opportunity is safe; an inconclusive score means the available evidence was insufficient. See the [Honesty and current limits](#honesty-and-current-limits) section.
 
 ---
 
@@ -12,10 +12,13 @@ HireShield AI is a commercial SaaS product that screens job postings, recruiter 
 
 | Capability | What the code actually provides |
 | --- | --- |
-| Multi-format screening | `POST /api/v1/analysis/job`, `/message`, `/url`, `/document` (PDF, PNG/JPEG/WebP with OCR, plain text). Uploads are limited to 10 MB by default and MIME-validated. |
+| Multi-format screening | `POST /api/v1/analysis/offer` (generic offers with category), `/job` (recruitment alias), `/message`, `/url`, `/document` (PDF, PNG/JPEG/WebP, plain text). Uploads are limited to 10 MB by default and MIME-validated. Image uploads use the optional local OCR engine; when no `tesseract` binary is installed the result is explicitly `not_configured`, and an image, logo or screenshot is never treated as proof of authenticity. |
+| Generic-offer rules | Category-aware indicators for advance fees, credential requests, urgency, unrealistic claims, giveaway manipulation, scholarship fees and investment guarantees. No general-offer model is approved, so the primary offer signal is an explicitly named `offer_rule_fallback`. |
 | Entity extraction | Company names, job titles, salary, recruiter emails, phone numbers, URLs, payment demands, sensitive-data requests, locations and text statistics. |
 | Explainable risk scoring | Six weighted components (ML, rules, domain, company, history, message) normalised over the sources actually available. Five bands from `Low observed risk` (0–19) to `Critical risk indicators` (80–100), with an explicit `inconclusive` flag when coverage is below 35%. Verified evidence receives boosts; missing evidence is never treated as a clean result. |
 | Consent-gated intelligence | RDAP, DNS and TLS checks are enabled by default and require no credentials. External URL/domain/company lookups run only when `consent_external_lookups` is true. Corporate-registry verification has a *separate* `consent_corporate_registry_lookup` gate on `/company/verify`. |
+| Brand and campaign states | Reports distinguish `verified_company`, `verified_official_campaign`, `unverified_advertisement`, `suspected_impersonation` and `not_attempted`. A registry match or logo never verifies a specific campaign; independent evidence is required for that state. |
+| Threat-indicator store | MongoDB-backed, normalised and deduplicated indicators with source registry, timestamps, expiry/TTL, admin JSON import and optional SSRF-safe public feed refresh. No feed is configured by default; no match is never presented as a clean result. |
 | Optional threat and registry feeds | VirusTotal, Google Safe Browsing v4, Google Web Risk v1 and a licensed corporate-registry intermediary are used only when configured. Unconfigured providers are reported as `not_configured`, never simulated. Safe Browsing v4 is documented in-code as non-commercial; commercial deployments should use Web Risk. MCA has no official public API, so a licensed/bulk intermediary with consent is required. |
 | Reports and corrections | JSON report view, generated PDF report, admin CSV export, and a correction/feedback workflow (`false_positive`, `missed_fraud`, `identity_correction`, `other`) stored with `pending_review` status. |
 | Monitoring and alerts | User-defined monitoring rules for companies, job titles, source URLs and keywords, with in-app notifications; email and SMS only when SMTP/SMS providers are configured. Only explicitly allow-listed job source URLs are fetched. |
@@ -131,24 +134,32 @@ Production behaviour is deliberately restrictive: `ENVIRONMENT=production` requi
 
 ## Verification commands
 
-Verified in this working tree on 19 November 2026:
+Verified in this working tree on 20 November 2026:
 
 ```powershell
-# Backend: 66 passed
+# Backend: 111 passed
 .\.venv\Scripts\python.exe -m pytest backend/tests -q --tb=line
 
-# Frontend: 23 passed across 6 files
+# Frontend: 29 passed across 7 files
 cd frontend
 npm run test -- --run
 
 # Frontend production build: passed (tsc --noEmit && vite build)
 npm run build
 
-# Container configuration
+# Browser extension: 6 passed
+cd ../browser-extension
+npm test
+
+# From the repository root: lint, config, secret and dependency checks
+cd ..
+.\.venv\Scripts\python.exe -m ruff check backend/app backend/tests backend/scripts scripts
 docker compose config --quiet
+.\.venv\Scripts\python.exe scripts/secret_scan.py
+.\.venv\Scripts\python.exe -m pip check
 ```
 
-`docker compose config --quiet` passed locally. Container *image builds* were not verified locally because the Docker daemon was not running; CI runs both builds. Full details are in [docs/TESTING.md](docs/TESTING.md).
+All checks above passed. `npm audit --omit=dev --audit-level=high` exited 0 with **0 high/critical** advisories (2 moderate React Router advisories remain). `pip-audit` reported `python-jose`/`ecdsa` advisories with no published fix versions; mitigations are documented in [docs/SECURITY.md](docs/SECURITY.md). Container *image builds* were not verified locally because the Docker daemon was not running; CI runs both builds. Full details are in [docs/TESTING.md](docs/TESTING.md).
 
 ---
 
@@ -158,14 +169,15 @@ The canonical template is [`.env.example`](.env.example). Empty values mean “n
 
 | Area | Key variables | Default / rule |
 | --- | --- | --- |
-| Core | `APP_NAME`, `ENVIRONMENT`, `SECRET_KEY`, `LOG_LEVEL`, `CORS_ORIGINS`, `ALLOWED_HOSTS`, `RATE_LIMIT_PER_MINUTE` | `development`; dev secret placeholder; dev CORS origins `localhost:5173`/`3000`; `ALLOWED_HOSTS=*` (TrustedHost middleware not added when `*`). Production requires a strong `SECRET_KEY`. |
-| Storage/workers | `MONGODB_URI`, `MONGODB_DB`, `REDIS_URL`, `CELERY_ENABLED`, `TASK_ALWAYS_EAGER`, `SCHEDULER_ENABLED`, `RETENTION_DAYS`, `AUDIT_RETENTION_DAYS` | Localhost defaults; dev in-memory fallback; eager tasks without a broker. Retention values exist in configuration but no purge job was found in the code. |
+| Core | `APP_NAME`, `ENVIRONMENT`, `SECRET_KEY`, `LOG_LEVEL`, `CORS_ORIGINS`, `ALLOWED_HOSTS`, `RATE_LIMIT_PER_MINUTE`, `RATE_LIMIT_WINDOW_SECONDS` | `development`; dev secret placeholder; dev CORS origins `localhost:5173`/`3000`; `ALLOWED_HOSTS=*` (TrustedHost middleware not added when `*`). Production requires a strong `SECRET_KEY`. Rate limits default to `120` requests per `60` seconds per client/path with `Retry-After` on `429`. |
+| Storage/workers | `MONGODB_URI`, `MONGODB_DB`, `REDIS_URL`, `CELERY_ENABLED`, `TASK_ALWAYS_EAGER`, `SCHEDULER_ENABLED`, `RETENTION_ENABLED`, `RETENTION_DAYS`, `AUDIT_RETENTION_DAYS` | Localhost defaults; dev in-memory fallback; eager tasks without a broker. Retention is enforced by the nightly Celery task and admin trigger; see [docs/RETENTION.md](docs/RETENTION.md). |
 | Uploads | `MAX_UPLOAD_MB`, `ALLOWED_UPLOAD_MIME`, `MAX_FETCH_BYTES`, `FETCH_TIMEOUT_SECONDS`, `MAX_REDIRECTS` | 10 MB; PDF/images/text; 256 KiB fetch cap; 8 s timeout; 4 redirects. |
 | Intelligence | `RDAP_ENABLED`, `DNS_ENABLED`, `TLS_ENABLED`, `VIRUSTOTAL_API_KEY`, `GOOGLE_SAFEBROWSING_API_KEY`, `GOOGLE_WEBRISK_API_KEY`, `MCA_API_URL`, `MCA_API_KEY`, `MCA_REQUIRE_CONSENT`, `JOB_SOURCE_URLS` | RDAP/DNS/TLS on by default without keys; all external feeds off until keys are supplied; MCA requires a licensed intermediary and separate consent. |
 | Notifications | `SMTP_*`, `SMS_*`, `NOTIFY_EMAIL_ON_HIGH_RISK` | Empty by default; in-app notifications still work. |
 | Billing | `RAZORPAY_*`, `STRIPE_*`, `PAYMENT_CURRENCY` | Empty by default (checkout returns `503 not configured`). The free Render evaluation deployment leaves both providers blank; `/api/v1/system/config` is authoritative. `INR` is the currency default. |
 | Plans | `FREE_SCAN_LIMIT`, `STUDENT_SCAN_LIMIT`, `PROFESSIONAL_SCAN_LIMIT`, `UNIVERSITY_SCAN_LIMIT`, `ENTERPRISE_SCAN_LIMIT` | `10 / 100 / 500 / 5000 / 100000`; seeded once, then admin-editable. |
-| Risk weights | `RISK_WEIGHT_ML/RULES/DOMAIN/COMPANY/HISTORY/MESSAGE` | `0.28 / 0.24 / 0.18 / 0.14 / 0.10 / 0.06`, renormalised over available evidence. |
+| Risk weights | `RISK_WEIGHT_CONTENT/URL/BRAND/THREAT/COMMUNITY` | `0.30 / 0.25 / 0.25 / 0.10 / 0.10` (specification split), renormalised over available signal categories. Legacy `RISK_WEIGHT_ML/RULES/DOMAIN/COMPANY/HISTORY/MESSAGE` variables are ignored. |
+| Score bands | `RISK_BAND_LOW_MAX`, `RISK_BAND_LIMITED_MAX`, `RISK_BAND_MODERATE_MAX`, `RISK_BAND_HIGH_MAX` | `19 / 39 / 59 / 79`; ordered 0–100 bounds produce the five documented category labels. |
 | Frontend | `VITE_API_URL` | `/api/v1`; baked in at build time for the container. |
 
 ---
@@ -176,15 +188,22 @@ The canonical template is [`.env.example`](.env.example). Empty values mean “n
 * **No paid access from the browser.** Checkout initiation is server-side; only signed provider webhooks change subscription state.
 * **Models are limited.** Two English-language, text-only EMSCAD job models are approved; message and anomaly models were rejected and the runtime falls back to explicit rule scorers. See [DEVELOPMENT_STATUS.md](DEVELOPMENT_STATUS.md) for the active manifest and metrics.
 * **Local fallback is not production.** The in-memory store and eager Celery execution are development conveniences. Production fails closed when MongoDB is unavailable.
-* **Not launch-ready.** Legal drafts are unreviewed, no production secrets or **live** payment provider are configured (only Razorpay test keys), container images were not built locally, and no security audit or production deployment is evidenced. See [docs/LAUNCH_READINESS.md](docs/LAUNCH_READINESS.md).
+* **Not launch-ready.** Legal drafts are unreviewed, no production secrets or **live** payment provider are configured (only Razorpay test keys), container images were not built locally, and there is no penetration test or production deployment evidence. Stage 8 added real secret/dependency audits; open advisories and mitigations are listed in [docs/SECURITY.md](docs/SECURITY.md). See [docs/LAUNCH_READINESS.md](docs/LAUNCH_READINESS.md).
 * **Repository state.** The repository is pushed to `origin/main` with a free Render evaluation deployment live. Protected branches, release approvals and a production deployment process are still required before launch.
-* **Legacy code.** The previous SOC application is preserved under `legacy-threat-intel/` for reference. It is **not** active code, is not referenced by the running application or Compose files, and should not be described as part of the HireShield AI product.
+* **Legacy code.** The previous SOC application is preserved under `legacy-threat-intel/` for reference. It is **not** active code, is not referenced by the running application or Compose files, and should not be described as part of the TrustLens AI product.
 
 ---
 
 ## Documentation
 
 * [DEVELOPMENT_STATUS.md](DEVELOPMENT_STATUS.md) — staged status, test evidence, model manifest, limitations and next steps.
+* [docs/TRUSTLENS_ROADMAP.md](docs/TRUSTLENS_ROADMAP.md) — derived Stage 1–8 execution plan and acceptance evidence.
+* [docs/TRUSTLENS_ARCHITECTURE.md](docs/TRUSTLENS_ARCHITECTURE.md) — target architecture mapped to implementation and deviations.
+* [docs/SECURITY.md](docs/SECURITY.md) — threat model, implemented controls, audits and open risks.
+* [docs/RETENTION.md](docs/RETENTION.md) — enforced retention policy, schedule and limitations.
+* [docs/ENVIRONMENTS.md](docs/ENVIRONMENTS.md) — environment files, precedence, secrets and protected identifiers.
+* [browser-extension/README.md](browser-extension/README.md) — MV3 permission model and user-triggered analysis flow.
+* [mobile-app/README.md](mobile-app/README.md) / [mobile-app/PERMISSION_POLICY.md](mobile-app/PERMISSION_POLICY.md) — mobile plan and forbidden-access policy.
 * [docs/BUSINESS.md](docs/BUSINESS.md) — segments, plan matrix from code, pricing guidance and commercial risks.
 * [docs/LEGAL_DRAFTS.md](docs/LEGAL_DRAFTS.md) — non-lawyer drafts requiring mandatory counsel review.
 * [docs/LAUNCH_READINESS.md](docs/LAUNCH_READINESS.md) — evidence-based go/no-go checklist.

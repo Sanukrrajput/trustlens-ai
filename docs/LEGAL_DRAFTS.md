@@ -1,8 +1,8 @@
-# HireShield AI — Legal Documents (NON-LAWYER DRAFTS)
+# TrustLens AI — Legal Documents (NON-LAWYER DRAFTS)
 
 > ## MANDATORY NOTICE — READ FIRST
 >
-> **These are non-lawyer product drafts, not legal advice and not ready for publication or production use.** They were prepared to capture how the current software behaves and to give qualified counsel a starting point. They contain unresolved jurisdiction, entity, contact and policy placeholders. **A qualified lawyer licensed in the relevant jurisdiction(s) must review, revise and approve every document below before HireShield AI is launched, sold, or offered to external users.**
+> **These are non-lawyer product drafts, not legal advice and not ready for publication or production use.** They were prepared to capture how the current software behaves and to give qualified counsel a starting point. They contain unresolved jurisdiction, entity, contact and policy placeholders. **A qualified lawyer licensed in the relevant jurisdiction(s) must review, revise and approve every document below before TrustLens AI is launched, sold, or offered to external users.**
 >
 > Draft date: 18 November 2026. Product behaviour reflected: the current repository only; no live production deployment, external API credentials or payment provider was configured at that time.
 
@@ -20,7 +20,7 @@
 | `[REGULATOR / AUTHORITY]` | Relevant data-protection or consumer authority. |
 | `[PROCESSOR SUBPROCESSOR LIST]` | Current hosting, database, provider and payment subprocessors. |
 | `[BREACH NOTIFICATION WINDOW]` | Contractually agreed notification period. |
-| `[RETENTION SCHEDULE]` | Final, legally reviewed retention periods (config currently suggests 365 days for investigations and 730 for audit logs, but no purge job is implemented). |
+| `[RETENTION SCHEDULE]` | Final, legally reviewed retention periods. The engineering defaults are 365 days for investigations and 730 for audit logs and are now enforced by [RETENTION.md](RETENTION.md), but counsel must approve the schedule before real data is processed. |
 | `[COOKIE INVENTORY]` | Verified list of cookies/local storage keys and their purposes. |
 
 ---
@@ -30,7 +30,7 @@
 **Effective date:** `[EFFECTIVE DATE]` · **Version:** `[VERSION]` · **Governing law:** `[GOVERNING LAW]`
 
 ### 1.1 Nature of the service
-HireShield AI is a decision-support service that analyses job postings, recruiter messages, URLs, documents and company information and returns risk indicators, explanatory evidence and reports. It is not an employment agency, background-check bureau, credit-reference agency, legal adviser, fraud insurer, or guarantor of the legitimacy of any opportunity or person.
+TrustLens AI is a decision-support service that analyses job postings, recruiter messages, URLs, documents and company information and returns risk indicators, explanatory evidence and reports. It is not an employment agency, background-check bureau, credit-reference agency, legal adviser, fraud insurer, or guarantor of the legitimacy of any opportunity or person.
 
 ### 1.2 Eligibility and accounts
 You must provide accurate account information and be authorised to submit the content you upload. Registration requires affirmative consent to the Privacy Policy and these Terms. You are responsible for credentials and activity under your account. Roles and administrative permissions are controlled by the service; attempting to obtain unauthorised roles is prohibited.
@@ -42,13 +42,13 @@ External public-source and registry lookups are performed only when you enable t
 Plans, prices and scan limits displayed in the application come from the live plan service. Payments are processed by the configured payment provider; the application does not store card details. Paid access is activated only after the provider sends a verified payment event to the service; a browser redirect alone does not activate a paid plan. Cancellation requests set a flag, with status changes still driven by provider events. Renewal, refund, tax and invoice terms must be inserted by counsel and aligned with the provider configuration: `[PAYMENT TERMS TO BE INSERTED]`.
 
 ### 1.5 User content and feedback
-You retain rights in content you submit. You grant HireShield AI a limited licence to process it to provide the service, maintain history and review corrections, subject to the Privacy Policy. You may submit a correction or report about an assessment; the service records it as pending review and does not promise a particular outcome or response time.
+You retain rights in content you submit. You grant TrustLens AI a limited licence to process it to provide the service, maintain history and review corrections, subject to the Privacy Policy. You may submit a correction or report about an assessment; the service records it as pending review and does not promise a particular outcome or response time.
 
 ### 1.6 Suspension and termination
 We may suspend or terminate access for breach of the Acceptable Use policy, unlawful submissions, security risk, non-payment, or where required by law. `[TERMINATION NOTICE AND APPEAL TERMS TO BE INSERTED BY COUNSEL]`.
 
 ### 1.7 Limitation of liability
-To the maximum extent permitted by law, HireShield AI and its contributors are not liable for decisions you make, losses arising from fraud, or indirect or consequential damages. Nothing excludes liability that cannot lawfully be excluded. `[FINAL LIABILITY LANGUAGE REQUIRED FROM COUNSEL]`.
+To the maximum extent permitted by law, TrustLens AI and its contributors are not liable for decisions you make, losses arising from fraud, or indirect or consequential damages. Nothing excludes liability that cannot lawfully be excluded. `[FINAL LIABILITY LANGUAGE REQUIRED FROM COUNSEL]`.
 
 ### 1.8 Governing law
 These terms are governed by `[GOVERNING LAW]`, with exclusive jurisdiction in `[JURISDICTION]`, subject to any mandatory consumer protections.
@@ -77,7 +77,7 @@ The service uses this data to provide and secure analysis, corroborate signals w
 External lookups are off unless you enable `consent_external_lookups`; corporate-registry lookup has a separate `consent_corporate_registry_lookup` gate. Optional providers include commercial domain reputation, Google Web Risk (the commercial alternative to non-commercial Safe Browsing v4), and a licensed corporate-registry intermediary. Provider identities and their privacy terms belong in `[PROCESSOR SUBPROCESSOR LIST]`.
 
 ### 2.5 Retention and deletion
-Configuration defines `RETENTION_DAYS=365` and `AUDIT_RETENTION_DAYS=730`, but **no automated purge job was found in the current code**. The final `[RETENTION SCHEDULE]` must be implemented, not merely documented. The current API has no self-service export or deletion endpoints; data-subject requests must be handled through `[PRIVACY CONTACT]` until such functionality exists. A correction can be requested from a report.
+Configuration defines `RETENTION_DAYS=365` and `AUDIT_RETENTION_DAYS=730`, and Stage 8 implemented automated enforcement with shorter caps for support chats (30 days), notifications (180), domain cache (30) and task status (7). See [RETENTION.md](RETENTION.md). These are **engineering defaults, not a legally approved schedule**; the final `[RETENTION SCHEDULE]` must still be reviewed. The current API has no self-service export or deletion endpoints; data-subject requests must be handled through `[PRIVACY CONTACT]` until such functionality exists. A correction can be requested from a report.
 
 ### 2.6 Security
 Access uses short-lived bearer tokens with refresh and revocation, role-based admin controls, upload validation, SSRF protections and security headers. No system can guarantee absolute security; suspected compromise should be reported to `[SUPPORT CONTACT]`.
@@ -95,7 +95,7 @@ The service is not intended for children under `[AGE THRESHOLD]`. Student and un
 **Between:** `[CONTROLLER LEGAL NAME]` and the customer entity identified in an order form. **Effective:** `[EFFECTIVE DATE]`.
 
 ### 3.1 Roles and scope
-Where the customer determines the purposes of processing submitted recruitment content, the customer is the controller and HireShield AI is the processor. Where HireShield AI determines purposes such as security, fraud prevention and aggregate quality measurement, it may act as an independent controller for those limited purposes; counsel must confirm this split.
+Where the customer determines the purposes of processing submitted recruitment content, the customer is the controller and TrustLens AI is the processor. Where TrustLens AI determines purposes such as security, fraud prevention and aggregate quality measurement, it may act as an independent controller for those limited purposes; counsel must confirm this split.
 
 ### 3.2 Instructions
 The processor handles personal data only to provide the service, comply with law and documented customer instructions. External lookups occur only with the relevant user consent. Product changes that materially affect processing require notice: `[CHANGE NOTIFICATION TERMS]`.
@@ -110,7 +110,7 @@ Current subprocessors to be enumerated: hosting, MongoDB provider, Redis/cache p
 The processor will assist with data-subject requests and security inquiries, notify the controller of a confirmed personal-data breach within `[BREACH NOTIFICATION WINDOW]`, and provide audit information on reasonable notice: `[AUDIT TERMS]`.
 
 ### 3.6 Deletion and return
-On termination, data is returned or deleted in accordance with `[RETENTION SCHEDULE]` and legal retention requirements. The current code has no automated purge; implementation is a launch prerequisite.
+On termination, data is returned or deleted in accordance with `[RETENTION SCHEDULE]` and legal retention requirements. An automated purge exists but its periods require legal approval; that approval is a launch prerequisite.
 
 ### 3.7 Liability
 `[DPA LIABILITY / INDEMNITY TERMS REQUIRED FROM COUNSEL]`.
@@ -136,7 +136,7 @@ Violations may result in suspension or termination and, where required, reportin
 
 ## 5. Cookie and Consent Notice — DRAFT
 
-> **Current implementation note:** the frontend stores `hireshield.access_token`, `hireshield.refresh_token` and `hireshield.user` in browser `localStorage`. No analytics or advertising cookies were found in the code. Verify the final deployment before publishing a cookie table: `[COOKIE INVENTORY]`.
+> **Current implementation note:** the frontend stores `trustlens.access_token`, `trustlens.refresh_token` and `trustlens.user` in browser `localStorage`. No analytics or advertising cookies were found in the code. Verify the final deployment before publishing a cookie table: `[COOKIE INVENTORY]`.
 
 ### 5.1 Consent captured by the product
 | Control | Where | Effect |
@@ -159,7 +159,7 @@ We use strictly necessary client storage to keep you signed in and remember pref
 2. **Approved model limits.** The two approved models are English-language, text-only classifiers trained on the EMSCAD corpus. Their reported ROC-AUC is high (0.9891 / 0.9914) while precision is 0.375 / 0.4595. Message and anomaly models are rejected and the system uses explicit rule fallbacks. Sigmoid-mapped scores and `confidence` values are not calibrated probabilities.
 3. **Not a background check or legal advice.** The service does not verify identity, employment history, creditworthiness or criminal records, and does not provide legal conclusions.
 4. **Third-party information.** Domain, reputation and registry results depend on external providers and licensed intermediaries; availability, accuracy and licence restrictions vary. Unconfigured sources are reported as unavailable.
-5. **Human review required.** Do not pay fees, share OTPs or banking credentials, or make adverse decisions based solely on a HireShield result.
+5. **Human review required.** Do not pay fees, share OTPs or banking credentials, or make adverse decisions based solely on a TrustLens result.
 6. **No service guarantee.** `[SLA / AVAILABILITY LANGUAGE TO BE INSERTED]`. The current repository does not evidence a production uptime commitment.
 
 ---

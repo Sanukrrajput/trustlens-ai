@@ -1,10 +1,10 @@
-# HireShield AI — Render Free-Plan Deployment Guide
+# TrustLens AI — Render Free-Plan Deployment Guide
 
 **Status: deployed on Render's Free plan.** The root [`render.yaml`](../render.yaml) declares only resources available on Render's Free plan: one free Docker web service for the API and one free static site for the frontend. This is an **evaluation deployment, not a production deployment**.
 
 - API: <https://hireshield-api-wets.onrender.com>
 - Frontend: <https://hireshield-web-j72o.onrender.com>
-- Blueprint instance: `hireshield-ai` (`exs-dbvj2k8n74is739nq3h0`), synced from `Sanukrrajput/hireshield-ai@main`
+- Blueprint instance: `trustlens-ai` (`exs-dbvj2k8n74is739nq3h0`), synced from `Sanukrrajput/trustlens-ai@main`
 - External datastore: MongoDB Atlas free M0; the URI is a Render secret and is not in Git, chat or this document.
 
 Live verification: `/health`, `/api/v1/health` and `/api/v1/system/config` return expected production payloads; the database is connected and `in_memory_fallback` is false; `/docs` and `/openapi.json` return 404; the frontend deep-link path serves the SPA and calls the correct API host.
@@ -20,7 +20,7 @@ Live verification: `/health`, `/api/v1/health` and `/api/v1/system/config` retur
 | `hireshield-api` | Docker web service | `free` | FastAPI/Uvicorn on container port `8000`; public HTTPS host; health path `/health`. |
 | `hireshield-web` | Static site | free | React SPA built from `frontend/`, published from `frontend/dist`. |
 
-The following paid resources were **removed**: `hireshield-worker`, `hireshield-beat` and `hireshield-redis` (Key Value). MongoDB is not created by the Blueprint; an external MongoDB Atlas M0 cluster is used.
+The following paid resources were **removed**: `trustlens-worker`, `trustlens-beat` and `trustlens-redis` (Key Value). MongoDB is not created by the Blueprint; an external MongoDB Atlas M0 cluster is used.
 
 Free-plan runtime choices:
 
@@ -52,7 +52,7 @@ Consequences:
 
 2. **MongoDB Atlas.** A free M0 cluster, database user and network access rule exist. The connection string is entered only through Render's secret prompt and is never placed in `render.yaml`, Git or documentation.
 
-3. **Render account and GitHub access.** The GitHub App should have access only to `Sanukrrajput/hireshield-ai`. Confirm the workspace shows **No card on file**; the free plan must not require payment.
+3. **Render account and GitHub access.** The GitHub App should have access only to `Sanukrrajput/trustlens-ai`. Confirm the workspace shows **No card on file**; the free plan must not require payment.
 
 4. **Optional credentials.** Leave Razorpay and Turnstile blank at first. With no keys, billing and bot-challenge integrations remain explicitly disabled and are reported as such.
 
@@ -80,7 +80,7 @@ No local `.env` value is read by Render. The Blueprint supplies runtime environm
 
 1. Push the updated repository (including the free-plan `render.yaml`) to `main`.
 2. In Render, choose **New → Blueprint**.
-3. Connect `Sanukrrajput/hireshield-ai`, branch `main`, Blueprint path `render.yaml`.
+3. Connect `Sanukrrajput/trustlens-ai`, branch `main`, Blueprint path `render.yaml`.
 4. Choose a Blueprint/workspace name. Keep the service names in the file consistent with the final hostnames.
 5. Confirm the parser shows only `hireshield-api` and `hireshield-web`, with the API plan as `free`. Do not continue if paid workers, Redis or a paid API plan still appear.
 6. Fill the prompted values:

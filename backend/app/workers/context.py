@@ -5,7 +5,7 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Any
 
-from app.core.config import Settings, get_settings
+from app.core.config import get_settings
 from app.db.mongo import MongoDBService
 from app.db.repositories import Repositories
 from app.services.notification_service import NotificationService

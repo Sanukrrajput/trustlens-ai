@@ -27,7 +27,7 @@ export function Topbar({ onOpenSidebar }: { onOpenSidebar: () => void }) {
 
   const title = pathname.startsWith('/app/reports/')
     ? 'Investigation report'
-    : titles[pathname] ?? 'HireShield AI';
+    : titles[pathname] ?? 'TrustLens AI';
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-line bg-bg/85 px-4 backdrop-blur-xl sm:px-6">

@@ -4,7 +4,7 @@ import { supportApi } from '../lib/api';
 import type { SupportChatMessage as StoredMessage } from '../types';
 import { cx } from '../lib/utils';
 
-const SESSION_KEY = 'hireshield.support_session';
+const SESSION_KEY = 'trustlens.support_session';
 const SESSION_PATTERN = /^[A-Za-z0-9_-]{8,64}$/;
 
 const INITIAL_SUGGESTIONS = [
@@ -35,7 +35,7 @@ function welcomeMessage(sessionId: string): StoredMessage {
     id: 'welcome',
     session_id: sessionId,
     role: 'assistant',
-    text: 'Hi — I can answer common HireShield questions from the project documentation. I won’t guess or invent an answer.',
+    text: 'Hi — I can answer common TrustLens questions from the project documentation. I won’t guess or invent an answer.',
     grounded: true,
     suggestions: INITIAL_SUGGESTIONS,
     created_at: new Date().toISOString(),
@@ -176,7 +176,7 @@ export function SupportWidget() {
       {open && (
         <section
           role="dialog"
-          aria-label="HireShield support assistant"
+          aria-label="TrustLens support assistant"
           className="flex max-h-[min(72vh,34rem)] w-[min(92vw,25rem)] flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-card"
         >
           <header className="flex items-start gap-3 border-b border-line bg-elevated px-4 py-3">
@@ -184,7 +184,7 @@ export function SupportWidget() {
               <Bot className="h-5 w-5" />
             </span>
             <div className="min-w-0 flex-1">
-              <h2 className="text-sm font-bold text-ink">HireShield support</h2>
+              <h2 className="text-sm font-bold text-ink">TrustLens support</h2>
               <p className="mt-0.5 text-[11px] text-muted">Docs-backed answers · no guessing</p>
             </div>
             <button
@@ -250,7 +250,7 @@ export function SupportWidget() {
                           isUser ? 'text-white/70' : 'text-muted',
                         )}
                       >
-                        {isUser ? 'You' : 'HireShield support'}
+                        {isUser ? 'You' : 'TrustLens support'}
                       </span>
                       {!!message.created_at && (
                         <span
@@ -353,7 +353,7 @@ export function SupportWidget() {
         className="inline-flex items-center gap-2 rounded-full bg-brand-600 px-4 py-3 text-sm font-bold text-white shadow-card transition hover:bg-brand-500"
       >
         {open ? <X className="h-4 w-4" /> : <MessageCircle className="h-4 w-4" />}
-        {open ? 'Hide chat' : 'Ask HireShield'}
+        {open ? 'Hide chat' : 'Ask TrustLens'}
       </button>
     </div>
   );

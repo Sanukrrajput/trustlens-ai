@@ -37,10 +37,29 @@ CANONICAL_NAMES = {
     "company_website_name_absent": "company_name_not_on_website",
     "company_email_domain_mismatch": "company_email_domain_mismatch",
     "company_external_verification_not_attempted": "company_verification_not_attempted",
+    # Generic offer rules map onto existing canonical signals where the same
+    # underlying observation is already measured, preventing double-counting.
+    "offer_advance_payment": "payment_demand",
+    "offer_credential_request": "sensitive_data_request",
+    "offer_urgency": "urgency_pressure",
+    "offer_unrealistic_claim": "unverified_claim",
+    "offer_personal_channel": "messaging_channel_pattern",
+    "offer_recruitment_fee": "payment_demand",
+    "offer_investment_guarantee": "unverified_claim",
+    # Image OCR reports observations, not authenticity. Payment/credential text
+    # is merged with text-based findings so the same demand is not counted twice.
+    "image_payment_request": "payment_demand",
+    "image_credential_request": "sensitive_data_request",
+    "threat_indicator_match": "threat_feed_match",
 }
 
 
-def _copy(raw: dict[str, Any], collected: dict[str, dict[str, Any]]) -> None:
+def _copy(
+    raw: dict[str, Any],
+    collected: dict[str, dict[str, Any]],
+    *,
+    category: str = "content",
+) -> None:
     name = CANONICAL_NAMES.get(str(raw.get("name") or ""), str(raw.get("name") or ""))
     add(
         collected,
@@ -55,6 +74,7 @@ def _copy(raw: dict[str, Any], collected: dict[str, dict[str, Any]]) -> None:
         independently_verified=bool(raw.get("independently_verified")),
         expires_at=raw.get("expires_at"),
         weight=raw.get("weight", 1.0),
+        signal_category=str(raw.get("signal_category") or category),
     )
 
 
@@ -87,6 +107,11 @@ def build_rule_indicators(
     company: dict[str, Any] | None,
     message: dict[str, Any] | None,
     historical: dict[str, Any] | None,
+    image: dict[str, Any] | None = None,
+    brand: dict[str, Any] | None = None,
+    threat: dict[str, Any] | None = None,
+    offer: dict[str, Any] | None = None,
+    community: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     """Return deduplicated EvidenceIndicator-shaped dicts for all inputs."""
     collected: dict[str, dict[str, Any]] = {}
@@ -95,6 +120,11 @@ def build_rule_indicators(
     company = company or {}
     message = message or {}
     historical = historical or {}
+    image = image or {}
+    brand = brand or {}
+    threat = threat or {}
+    offer = offer or {}
+    community = community or {}
 
     payments = extracted.get("payment_demands") or []
     if payments:
@@ -106,6 +136,7 @@ def build_rule_indicators(
             description="Payment demand extracted from the supplied text: " + "; ".join(str(item) for item in payments[:2]),
             source="entity extraction",
             confidence=0.6,
+            signal_category="content",
         )
     sensitive = extracted.get("sensitive_data_requests") or []
     if sensitive:
@@ -117,6 +148,7 @@ def build_rule_indicators(
             description="Request for credentials or sensitive documents extracted from the text.",
             source="entity extraction",
             confidence=0.6,
+            signal_category="content",
         )
 
     personal_emails = [
@@ -137,20 +169,36 @@ def build_rule_indicators(
             description="A free/personal email provider was used as a recruiter contact; this is common and not proof of fraud.",
             source="entity extraction",
             confidence=0.4,
+            signal_category="content",
         )
 
     for raw in domain.get("indicators") or []:
         if isinstance(raw, dict):
-            _copy(raw, collected)
+            _copy(raw, collected, category="url")
     for raw in company.get("indicators") or []:
         if isinstance(raw, dict):
-            _copy(raw, collected)
+            _copy(raw, collected, category="brand")
     for raw in message.get("indicators") or []:
         if isinstance(raw, dict):
-            _copy(raw, collected)
+            _copy(raw, collected, category="content")
     for raw in historical.get("indicators") or []:
         if isinstance(raw, dict):
-            _copy(raw, collected)
+            _copy(raw, collected, category="community")
+    for raw in image.get("indicators") or []:
+        if isinstance(raw, dict):
+            _copy(raw, collected, category="content")
+    for raw in brand.get("indicators") or []:
+        if isinstance(raw, dict):
+            _copy(raw, collected, category="brand")
+    for raw in threat.get("indicators") or []:
+        if isinstance(raw, dict):
+            _copy(raw, collected, category="threat")
+    for raw in offer.get("indicators") or []:
+        if isinstance(raw, dict):
+            _copy(raw, collected, category="content")
+    for raw in community.get("indicators") or []:
+        if isinstance(raw, dict):
+            _copy(raw, collected, category="community")
 
     contradictions = company.get("contradictions") or []
     if contradictions:
@@ -165,6 +213,7 @@ def build_rule_indicators(
             description="Company corroboration found inconsistencies: " + "; ".join(descriptions),
             source="company verification",
             confidence=0.5,
+            signal_category="brand",
         )
 
     counts = historical.get("historical_counts") or {}
@@ -187,6 +236,7 @@ def build_rule_indicators(
                     description=f"{description} Observed {total} previous time(s). Repetition alone is not proof of fraud.",
                     source="historical analysis repository",
                     confidence=0.45,
+                    signal_category="community",
                 )
 
     signals = historical.get("signals") or {}
@@ -200,6 +250,7 @@ def build_rule_indicators(
             source="historical analysis repository",
             confidence=0.5,
             weight=0.2,
+            signal_category="community",
         )
 
     if not domain and not company:
@@ -211,6 +262,7 @@ def build_rule_indicators(
             description="No domain or company intelligence was available for this analysis.",
             source="coverage check",
             confidence=0.9,
+            signal_category="coverage",
         )
     if isinstance(domain, dict) and domain.get("status") in {"limited", "error", "unavailable"}:
         add(
@@ -221,6 +273,7 @@ def build_rule_indicators(
             description="External domain checks were incomplete; absent findings should not be read as clean findings.",
             source="domain analysis",
             confidence=0.8,
+            signal_category="url",
         )
 
     # Ensure every indicator has a valid observation timestamp even if an

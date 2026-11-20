@@ -68,12 +68,12 @@ export function TermsPage() {
     <LegalLayout title="Terms of Service (draft)" updated="18 November 2026">
       <Card title="1. Nature of the service">
         <p className="text-sm leading-relaxed text-muted">
-          HireShield AI provides evidence-led risk intelligence to help you evaluate job opportunities, recruiters, messages and companies. It is a decision-support tool. It is not an employment agency, background-check bureau, legal adviser or fraud insurer.
+          TrustLens AI provides evidence-led risk intelligence to help you evaluate job opportunities, recruiters, messages and companies. It is a decision-support tool. It is not an employment agency, background-check bureau, legal adviser or fraud insurer.
         </p>
       </Card>
       <Card title="2. No guarantee of legitimacy">
         <p className="text-sm leading-relaxed text-muted">
-          Risk scores, categories, model predictions and indicators are probabilistic and may be wrong. An inconclusive result means the available evidence was insufficient. A low-risk result does not guarantee that an opportunity is legitimate. Always perform independent due diligence and never pay an advance fee or share sensitive credentials based solely on a HireShield result.
+          Risk scores, categories, model predictions and indicators are probabilistic and may be wrong. An inconclusive result means the available evidence was insufficient. A low-risk result does not guarantee that an opportunity is legitimate. Always perform independent due diligence and never pay an advance fee or share sensitive credentials based solely on a TrustLens result.
         </p>
       </Card>
       <Card title="3. Acceptable use">
@@ -86,7 +86,7 @@ export function TermsPage() {
       </Card>
       <Card title="4. Accounts and billing">
         <p className="text-sm leading-relaxed text-muted">
-          You are responsible for account credentials and activity. Plans, prices and scan limits are displayed from the live billing service. Payments are handled by the configured payment provider; HireShield does not store card details. Subscription terms such as renewal and cancellation are shown in your billing section.
+          You are responsible for account credentials and activity. Plans, prices and scan limits are displayed from the live billing service. Payments are handled by the configured payment provider; TrustLens does not store card details. Subscription terms such as renewal and cancellation are shown in your billing section.
         </p>
       </Card>
       <Card title="5. Corrections and feedback">
@@ -96,7 +96,7 @@ export function TermsPage() {
       </Card>
       <Card title="6. Limitation of liability">
         <p className="text-sm leading-relaxed text-muted">
-          To the maximum extent permitted by law, HireShield and its contributors are not liable for decisions you make, losses arising from fraud, or indirect or consequential damages. Nothing in these terms excludes liability that cannot lawfully be excluded.
+          To the maximum extent permitted by law, TrustLens and its contributors are not liable for decisions you make, losses arising from fraud, or indirect or consequential damages. Nothing in these terms excludes liability that cannot lawfully be excluded.
         </p>
         <p className="mt-3 text-sm"><Link className="link" to="/privacy">Read the Privacy Policy →</Link></p>
       </Card>

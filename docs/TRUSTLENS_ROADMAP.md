@@ -14,12 +14,13 @@ This document converts the TrustLens AI master specification into an executable,
 
 | Check | Result |
 | --- | --- |
-| `python -m pytest backend/tests -q --tb=line` | **73 passed** |
-| `npm run test -- --run` (frontend) | **27 passed**, 7 files |
+| `python -m pytest backend/tests -q --tb=line` | **111 passed** after Stage 8 (73 at baseline; 101 after Stage 5) |
+| `npm run test -- --run` (frontend) | **29 passed**, 7 files (27 at baseline) |
+| `npm test` (browser extension) | **6 passed** after Stage 7 |
 | `npm run build` (frontend) | **Passed** (`tsc --noEmit && vite build`) |
-| Git working tree | Clean at start of work |
+| Git working tree | Clean at start of work; all Stage 1–8 changes remain uncommitted in the working tree |
 
-The existing product already provides: FastAPI + `/api/v1`, Argon2id auth with JWT rotation/revocation, RBAC with ownership checks, a six-component explainable risk engine, SSRF-resistant URL fetching, RDAP/DNS/TLS lookups with consent gates, manifest-gated local ML models with honest rule fallbacks, Mongo repositories with validators and indexes, PDF/JSON reports, correction feedback, monitoring with in-app notifications, admin APIs, structured audit logging, Docker Compose, CI workflows and a free-tier Render evaluation deployment.
+The existing product already provides: FastAPI + `/api/v1`, Argon2id auth with JWT rotation/revocation, RBAC with ownership checks, a five-category explainable risk engine, SSRF-resistant URL fetching, RDAP/DNS/TLS lookups with consent gates, manifest-gated local ML models with honest rule fallbacks, Mongo repositories with validators and indexes, PDF/JSON reports, correction feedback, monitoring with in-app notifications, admin APIs, structured audit logging, Docker Compose, CI workflows and a free-tier Render evaluation deployment.
 
 ## Target product shape
 
@@ -29,7 +30,7 @@ Scope broadening: recruitment fraud remains a supported special case, but the pr
 
 ---
 
-## Stage 1 — Architecture (in progress)
+## Stage 1 — Architecture (done)
 
 **Deliverables**
 
@@ -37,53 +38,55 @@ Scope broadening: recruitment fraud remains a supported special case, but the pr
 2. Explicit deviation register (MongoDB retained; billing exists but is out of specification scope; legacy SOC code out of scope).
 3. This staged plan with acceptance criteria.
 
-**Acceptance:** architecture document reviewed; no working functionality removed; baseline tests still green.
+**Acceptance:** `docs/TRUSTLENS_ARCHITECTURE.md` and this plan published; no working functionality removed; baseline tests still green.
 
-## Stage 2 — Rebrand and trust surface
+## Stage 2 — Rebrand and trust surface (done)
 
 **Scope:** replace user-facing product identity with TrustLens AI across API defaults, SPA assets/copy, reports, configuration templates, documentation and deployment descriptors. Preserve infrastructure identifiers whose change would break data or deployments (database name, live Render hostnames, git remote, seeded account emails) until a separate migration is planned.
 
-**Acceptance:** no user-facing "HireShield" branding remains; existing tests updated and passing; production build passes; deployment descriptors remain valid (`docker compose config --quiet`).
+**Acceptance met:** user-facing identity is TrustLens AI; protected infrastructure identifiers (MongoDB DB name, Compose project/volumes, Celery namespace, Render hosts/services, seeded account emails, model manifest provenance, CI artifact names, live FAQ URLs) were explicitly preserved by `scripts/rebrand_trustlens.py`. Existing tests updated and passing; production build passes; `docker compose config --quiet` passes. Historical references in `README.md`, deployment docs and the two TrustLens planning documents intentionally retain old infrastructure names.
 
-## Stage 3 — Generic offer verification in the web application
+## Stage 3 — Generic offer verification in the web application (done)
 
 **Scope:** introduce offer-type-aware analysis (advertisement / giveaway / scholarship / investment / recruitment / promotion / other) while keeping `/analysis/job` as a backwards-compatible alias. Generalise labels, validation copy, entity extraction prompts where safe, and report explanations. Keep job-specific ML models but describe them accurately as recruitment-text models rather than general offer models.
 
-**Acceptance:** new offer endpoints or aliases work end to end; old clients continue to function; regression tests for both paths; no fabricated detection results.
+**Acceptance met:** `POST /api/v1/analysis/offer` accepts an offer category and returns a structured report; `/analysis/job` remains unchanged for existing clients; the frontend workspace has a working "Offer" tab; offer scoring uses a named `offer_rule_fallback` because no general-offer model is approved; category-aware indicators and campaign-authorisation uncertainty are asserted by tests. No fabricated detection results.
 
-## Stage 4 — Intelligence engines
+## Stage 4 — Intelligence engines (done)
 
-**Scope:** add the independent engines the specification requires and that are absent today:
+**Scope met:** three independent engines were added and wired into `AnalysisService` without becoming hard dependencies:
 
-- Image/OCR engine using an open-source OCR path with safe image handling, text/phone/URL/email/payment extraction, and explicit "image does not prove authenticity" framing.
-- Brand and official-campaign verification engine with separate states for verified entity, verified official campaign, unverified advertisement and suspected impersonation.
-- Threat-intelligence indicator store with normalisation, deduplication, source registry, timestamps, expiry and optional public-feed imports.
+- **Image/OCR** (`backend/app/intelligence/image/ocr.py`): validates image bytes, caps dimensions, delegates to optional local `pytesseract` only when a real `tesseract` binary exists, extracts phone/email/URL/payment/credential observations, and reports `not_configured` with explicit "image does not prove authenticity" limitations when OCR is unavailable. Document uploads now carry `image_intelligence`; an invalid image is `invalid_image`, never a clean result.
+- **Brand/campaign** (`backend/app/intelligence/brand_verification/`): reports `verified_company`, `verified_official_campaign`, `unverified_advertisement`, `suspected_impersonation` or `not_attempted`. Registry confirmation never implies campaign authorisation; only independently sourced campaign evidence can produce `verified_official_campaign`. User-supplied screenshots and adverts are explicitly excluded.
+- **Threat indicators** (`backend/app/intelligence/threat_indicators/`): MongoDB `threat_indicators` and `threat_sources` collections, value normalisation, source-aware deduplication, observed/expiry timestamps, TTL index, admin source registry, direct JSON import, and optional SSRF-safe public JSON feed refresh. No feed is configured by default; unavailable feeds report `not_configured`/`not_attempted`, and absence of a match never establishes legitimacy.
 
-**Acceptance:** each engine is independently testable, reports `not_configured`/`not_attempted` honestly, and cannot become a hard dependency of the web application.
+**Acceptance met:** each engine has isolated unit tests; their results appear in `AnalysisResult` (`image_intelligence`, `brand_intelligence`, `threat_intelligence`) and PDF reports; all indicators pass through canonical deduplication; backend **97 passed**, frontend **29 passed**, `npm run build` and `docker compose config --quiet` pass.
 
-## Stage 5 — Risk engine and report alignment
+## Stage 5 — Risk engine and report alignment (done)
 
-**Scope:** align signal categories and weights with the specification's initial 30/25/25/10/10 split, with availability-based renormalisation retained. Extend the structured report to carry evidence sources, timestamps, confidence/uncertainty, missing information and recommended actions. Keep calibrated-probability language out of the product.
+**Scope met:** the risk engine now scores five signal categories — `content` 30%, `url` 25%, `brand` 25%, `threat` 10% and `community` 10% — with renormalisation over available categories retained. Indicators carry a `signal_category`; overlapping sub-signals inside one category use the strongest observation rather than double-counting. Empty/no-match threat, brand and history checks remain in `unavailable_signals` and never become clean zero-risk evidence. `RISK_WEIGHT_*` and `RISK_BAND_*_MAX` are configurable and documented; legacy six-weight variables are removed from the contract.
 
-**Acceptance:** deterministic risk-engine tests; score bands and weights configurable and documented; every report contains the required structured fields.
+**Acceptance met:** deterministic tests cover the default split, custom weights/renormalisation, configurable bands, empty-threat honesty and structured fields. Every completed `AnalysisResult` now carries `evidence_sources` (status, attempted and observed timestamps, engine detail), `evidence_collected_at`, `missing_evidence`, `technical_limitations`, `risk.recommended_actions`, `risk.confidence`, `risk.uncertainty`, `risk.signal_weights` and `risk.unavailable_signals`; PDF and SPA reports render them. Model outputs are labelled "uncalibrated risk score" in the UI/PDF rather than as fraud probabilities. Backend **101 passed**, frontend **29 passed**, `npm run build` and `docker compose config --quiet` pass.
 
-## Stage 6 — Community and moderation
+## Stage 6 — Community and moderation (done)
 
-**Scope:** differentiate community reports from corrections, add duplicate detection, reputation-aware weighting, moderator verification states and false-report handling. Never classify a business as fraudulent from a single report.
+**Scope met:** corrections and community allegations are now distinct categories. `POST /api/v1/reports/feedback` stores `category="correction"`; `POST /api/v1/reports/community` stores `category="community"` with claim types `missed_fraud`, `impersonation`, `unauthorized_campaign` and `other`. Every report carries a pseudonymous `entity_key`, a normalised `claim_key`, a reporter/entity/claim `dedupe_key` and a `duplicate_group_key`; resubmissions return the original report with `duplicate=true`, while different reporters remain distinct so they can corroborate the same claim. Reporter reputation is a transparent, bounded snapshot (neutral 0.5 baseline, clamped to 0.05–0.95) derived from moderation outcomes and stored with each report. Moderators move reports through `pending`, `verified`, `corroborated`, `false_report` and `dismissed` states; false reports require a reason, legacy `reviewed` maps to `pending` and is never treated as verification, and every decision writes both a generic audit event and the state-specific action.
 
-**Acceptance:** one user report cannot by itself change an entity's risk classification; moderation actions are audited; ownership and RBAC tests pass.
+**Honesty gate:** only moderator-verified community reports from at least two distinct reporters create a `community_independently_corroborated` indicator. A single report produces no community indicator, cannot change the entity's risk classification and never becomes clean evidence. The indicator is `suspicious`, `independently_verified=false` and explicitly labelled as decision support that is not proof of fraud. False and dismissed reports are excluded; insufficient or absent community coverage stays in `missing_evidence` rather than being counted as a clean result.
 
-## Stage 7 — Extension and mobile plan
+**Acceptance met:** backend tests assert the correction/community distinction, duplicate detection, analysis ownership, single-report non-reclassification, two-reporter corroboration, false-report handling, reputation decay, audit metadata and RBAC. Backend **105 passed**, frontend **29 passed**, `npm run build` and `docker compose config --quiet` pass.
 
-**Scope:** after the web application is complete, add a Chrome Manifest V3 extension with user-triggered current-page analysis, minimal permissions and no silent history collection; add a React Native implementation plan covering Android Share Intent, screenshots and messages, with no monitoring of other applications.
+## Stage 7 — Extension and mobile plan (done)
 
-**Acceptance:** extension performs only user-triggered analysis; permissions are minimal; mobile plan explicitly forbids unauthorised access.
+**Scope met:** `browser-extension/` adds a Chrome Manifest V3 popup that analyses **only the active page** after the user clicks **Analyse this page**. Install-time permissions are exactly `activeTab`, `scripting` and `storage`; there is no service worker, content script, history/webNavigation/alarms/cookies access or telemetry. The host permission for the configured API origin is requested at click time and can be denied before any page text is sent. The popup reads at most 20,000 characters of visible text, disables external lookups, generates a fresh idempotency key, renders all untrusted text with `textContent`, and labels the score as uncalibrated with a count of missing checks. Page text is never written to extension storage. `mobile-app/README.md` and `mobile-app/PERMISSION_POLICY.md` define a future React Native single-item Share Intent/screenshot/message flow and explicitly forbid notification-listener, accessibility, background-capture and cross-app access.
 
-## Stage 8 — Security, DevOps and validation
+**Acceptance met:** six extension contract tests pass. They assert the exact permission set, absence of background/automatic hooks, explicit-click wiring, serialisable self-contained extraction, bounded untrusted text and honest failure when a page is unavailable. Mobile is deliberately a plan, not a shipped application.
 
-**Scope:** dependency scanning, secret hygiene, retention enforcement, configurable rate limiting, structured logging with request IDs, backup/restore drill, separate environment configuration, and full test/build/container verification.
+## Stage 8 — Security, DevOps and validation (done)
 
-**Acceptance:** full test suite green; security checks documented with real commands and results; no secrets, databases, uploads or private datasets committed.
+**Scope met:** dependency and secret checks were added to CI; `scripts/secret_scan.py` scans tracked files and fails on tracked `.env`/backup files or credential patterns. Rate limits are driven by `RATE_LIMIT_PER_MINUTE` and `RATE_LIMIT_WINDOW_SECONDS` with a `Retry-After` header; `X-Request-ID` is accepted only when it is a short opaque token, otherwise generated, echoed, exposed to CORS and attached to structured `ctx_*` logs. `RETENTION_DAYS`/`AUDIT_RETENTION_DAYS` are now enforced by `backend/app/services/retention_service.py`, a Celery beat task and an admin-only `POST /system/tasks/retention` trigger; MongoDB TTL indexes remain an asynchronous safety net. `scripts/backup_tool.py` provides JSONL logical backup, checksum verification and restore that refuses without `--confirm`. `.gitignore` excludes `backups/`; Dependabot configs cover pip, npm and GitHub Actions.
+
+**Acceptance met:** backend **111 passed**, frontend **29 passed** across 7 files, extension **6 passed**, frontend production build passed, `docker compose config --quiet` passed, `python -m compileall` passed, `ruff check` passed, `python scripts/secret_scan.py` reported `status: ok` over 269 tracked files with no tracked env/backup files, `pip check` and `npm ls --omit=dev` reported consistent dependency trees. `npm audit --omit=dev --audit-level=high` exited successfully with **0 high/critical** advisories (2 moderate React Router advisories remain; fix requires a major upgrade). `pip-audit` reported 3 known advisories in 2 pinned packages (`python-jose`, `ecdsa`) with no published fixed versions; the CI job is reporting-only and the mitigating controls are documented in [SECURITY.md](SECURITY.md). No secrets, databases, uploads or private datasets are committed; all changes remain uncommitted in the working tree.
 
 ---
 

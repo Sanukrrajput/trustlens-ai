@@ -1,4 +1,4 @@
-# HireShield AI — Machine Learning Documentation
+# TrustLens AI — Machine Learning Documentation
 
 This document describes the models, datasets, training gates, inference behaviour and honest limitations that are present in this repository. It is based on the checked-in artifacts and source code; it does not assume a live deployment, additional labelled data, or any external credentials. The authoritative runtime manifest is `backend/models/model_manifest.json`.
 
@@ -203,11 +203,11 @@ Short normalized inputs are handled explicitly. With an approved model, fewer th
 
 ### Confidence, probability and risk score
 
-- `fraud_probability` is the model's fraud-oriented score used by the risk engine. For logistic regression it comes from `predict_proba`; for LinearSVC and several anomaly paths it is a sigmoid-mapped decision score.
+- `fraud_probability` is a legacy field name for the model's fraud-oriented score used by the risk engine. For logistic regression it comes from `predict_proba`; for LinearSVC and several anomaly paths it is a sigmoid-mapped decision score. Present it to users as an **uncalibrated model risk score**, never as a calibrated fraud probability.
 - `confidence` is a margin/evidence-strength indicator computed from distance to `0.5` and capped at `0.95`. It is **not** a calibrated probability and is **not** used as the risk score.
-- `score_risk()` in `backend/app/core/risk_engine.py` combines `fraud_probability` with rule, domain, company, history and message components. It discounts fallbacks (`0.45` trust), inconclusive predictions and synthetic claims, then normalizes weights over available evidence only.
-- Default weights from `Settings.risk_weights` are ML `0.28`, rules `0.24`, domain `0.18`, company `0.14`, history `0.10` and message `0.06`, normalized at runtime.
-- Risk bands are `0–19 Low observed risk`, `20–39 Limited warning signals`, `40–59 Moderate risk`, `60–79 High risk`, and `80–100 Critical risk indicators`. Verified indicators and confirmed malicious reputation apply explicit boosts. Low coverage sets `inconclusive=True` and suppresses reassuring language.
+- `score_risk()` in `backend/app/core/risk_engine.py` combines the model's uncalibrated risk score with message, domain, company, history, brand and threat indicators. It discounts fallbacks (`0.45` trust), inconclusive predictions and synthetic claims, takes the strongest non-overlapping sub-signal inside each category, then normalizes weights over available signal categories only.
+- Default weights from `Settings.risk_weights` follow the specification split: `content` `0.30`, `url` `0.25`, `brand` `0.25`, `threat` `0.10`, `community` `0.10`, normalized at runtime. `RISK_WEIGHT_*` environment variables override them; the legacy six-weight variables are ignored.
+- Risk bands are `0–19 Low observed risk`, `20–39 Limited warning signals`, `40–59 Moderate risk`, `60–79 High risk`, and `80–100 Critical risk indicators`, configurable through `RISK_BAND_*_MAX`. Verified indicators and confirmed malicious reputation apply explicit boosts. Low coverage sets `inconclusive=True` and suppresses reassuring language. An empty threat/brand/history lookup remains `unavailable_signals` rather than becoming a clean zero.
 
 ## Explainability
 
@@ -218,7 +218,8 @@ Each prediction returns `model_name`, `model_version`, `prediction`, `fraud_prob
 | Approved text models | Top five signed TF-IDF × linear-coefficient terms, with `increases_risk` / `decreases_risk` direction and a human-readable description |
 | Approved anomaly models | Top five features by absolute `value × model weight`, with direction from the sign of the product |
 | Rule fallbacks | Explicit lexicon or feature-hit descriptions such as “Rule fallback matched high-risk phrase …” |
-| Risk assessment | `evidence_summary`, `recommended_actions`, `component_scores`, `data_coverage`, `weights_version`, `inconclusive` and a category summary |
+| Risk assessment | `evidence_summary`, `recommended_actions`, `confidence`, `uncertainty`, `component_scores`, `signal_weights`, `unavailable_signals`, `data_coverage`, `weights_version`, `inconclusive` and a category summary |
+| Source provenance | Timestamped `evidence_sources` records with honest statuses and engine detail |
 
 These are feature attributions and heuristics. They show what moved a score in this implementation; they are not causal explanations, proof of fraud, or independent verification.
 

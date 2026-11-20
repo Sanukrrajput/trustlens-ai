@@ -6,7 +6,6 @@ import logging
 import smtplib
 from email.message import EmailMessage
 from typing import Any
-from urllib.parse import urlencode
 
 import requests
 
@@ -68,7 +67,7 @@ class NotificationService:
         message["To"] = to
         message["Subject"] = subject
         link = f"{self.settings.cors_origins[0]}/report/{analysis_id}" if analysis_id else self.settings.cors_origins[0]
-        message.set_content(f"{body}\n\nReview: {link}\n\nHireShield AI")
+        message.set_content(f"{body}\n\nReview: {link}\n\nTrustLens AI")
         try:
             with smtplib.SMTP(self.settings.smtp_host, self.settings.smtp_port, timeout=10) as client:
                 if self.settings.smtp_use_tls:

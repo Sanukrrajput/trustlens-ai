@@ -1,0 +1,10 @@
+{
+  "name": "trustlens-browser-extension",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "User-triggered Chrome MV3 page verification client for TrustLens AI",
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  }
+}

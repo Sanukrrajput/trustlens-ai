@@ -30,8 +30,11 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r backend/requirements-dev.txt
 
+      - name: Verify installed dependency consistency
+        run: python -m pip check
+
       - name: Compile source
-        run: python -m compileall -q backend/app backend/scripts
+        run: python -m compileall -q backend/app backend/scripts backend/tests scripts
 
       - name: Run tests
         run: python -m pytest backend/tests -q --tb=line
@@ -62,11 +65,63 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Verify locked dependency tree
+        run: npm ls --omit=dev
+
       - name: Build
         run: npm run build
 
       - name: Run tests
         run: npm run test -- --run
+
+  browser-extension:
+    name: Extension permission contract
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: browser-extension
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Run extension contract tests
+        run: npm test
+
+  security:
+    name: Secret and dependency scanning
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Set up Python tools
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pip-audit
+      - name: Secret hygiene (blocking)
+        run: python scripts/secret_scan.py
+      - name: Python dependency audit (reporting)
+        continue-on-error: true
+        run: python -m pip_audit --requirement backend/requirements.txt --format json > pip-audit.json
+      - name: Upload Python audit report
+        uses: actions/upload-artifact@v4
+        with:
+          name: pip-audit-report
+          path: pip-audit.json
+      - name: JavaScript dependency audit (reporting)
+        continue-on-error: true
+        working-directory: frontend
+        run: npm audit --omit=dev --audit-level=high --json > ../npm-audit.json
+      - name: Upload JavaScript audit report
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-audit-report
+          path: npm-audit.json
 
   containers:
     name: Container builds

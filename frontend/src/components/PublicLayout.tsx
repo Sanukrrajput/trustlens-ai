@@ -88,7 +88,7 @@ export function PublicLayout() {
           </div>
         </div>
         <div className="border-t border-line px-4 py-5 text-center text-xs text-muted">
-          © {new Date().getFullYear()} HireShield AI. This product does not guarantee that any listing, employer or recruiter is legitimate.
+          © {new Date().getFullYear()} TrustLens AI. This product does not guarantee that any listing, employer or recruiter is legitimate.
         </div>
       </footer>
     </div>

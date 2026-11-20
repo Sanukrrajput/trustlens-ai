@@ -45,6 +45,10 @@ celery_app.conf.update(
             "task": "app.workers.tasks.health_check",
             "schedule": crontab(minute=f"*/{max(1, settings.health_check_interval_minutes)}"),
         },
+        "enforce-data-retention": {
+            "task": "app.workers.tasks.cleanup_retention",
+            "schedule": crontab(minute=0, hour=3),
+        },
     },
 )
 

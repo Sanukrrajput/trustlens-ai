@@ -164,6 +164,23 @@ export const demoAnalysis: AnalysisResult = {
       weight: 0.2,
     },
   ],
+  evidence_sources: [
+    {
+      name: 'Demo extraction',
+      status: 'succeeded',
+      attempted_at: '2026-01-15T09:35:00Z',
+      observed_at: '2026-01-15T09:35:00Z',
+      detail: 'Fictional demonstration data only',
+    },
+    {
+      name: 'Demo registry fixture',
+      status: 'not_attempted',
+      attempted_at: '2026-01-15T09:35:00Z',
+      observed_at: '2026-01-15T09:35:00Z',
+      detail: 'No live registry was queried',
+    },
+  ],
+  evidence_collected_at: '2026-01-15T09:36:00Z',
   missing_evidence: [
     'Signed employment contract',
     'Verified corporate registration number',
@@ -178,7 +195,7 @@ export const demoAnalysis: AnalysisResult = {
     category: 'high_risk',
     inconclusive: false,
     summary:
-      'This fictional example shows how HireShield combines extracted signals, model predictions and independently verified evidence into an explainable risk score.',
+      'This fictional example shows how TrustLens combines extracted signals, model predictions and independently verified evidence into an explainable risk score.',
     evidence_summary: [
       'Advance-fee request is the strongest negative signal.',
       'Several identity claims remain unverified.',
@@ -189,13 +206,23 @@ export const demoAnalysis: AnalysisResult = {
       'Report the message to the platform where you received it.',
     ],
     confidence: 0.84,
+    uncertainty: 0.16,
     data_coverage: 0.71,
-    weights_version: 'demo-weights-1',
+    weights_version: 'demo-weights-2',
+    signal_weights: {
+      content: 0.3,
+      url: 0.25,
+      brand: 0.25,
+      threat: 0.1,
+      community: 0.1,
+    },
+    unavailable_signals: ['threat'],
     component_scores: {
-      payment_signals: 0.92,
-      identity_consistency: 0.74,
-      domain_signals: 0.68,
-      message_pressure: 0.81,
+      content: 0.92,
+      url: 0.68,
+      brand: 0.74,
+      threat: 0,
+      community: 0.35,
     },
   },
   sources_attempted: ['Demo extraction', 'Demo domain check', 'Demo registry fixture', 'Demo web check'],
@@ -205,9 +232,9 @@ export const demoAnalysis: AnalysisResult = {
 
 export const demoFaqs = [
   {
-    question: 'Is HireShield a replacement for my own judgement?',
+    question: 'Is TrustLens a replacement for my own judgement?',
     answer:
-      'No. HireShield surfaces evidence and confidence, not certainty. An inconclusive result is a valid outcome and always means you should seek independent confirmation before acting.',
+      'No. TrustLens surfaces evidence and confidence, not certainty. An inconclusive result is a valid outcome and always means you should seek independent confirmation before acting.',
   },
   {
     question: 'Do you guarantee that a job is legitimate?',

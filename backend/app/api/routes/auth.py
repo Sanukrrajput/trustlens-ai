@@ -41,7 +41,6 @@ from app.services.login_security import (
 from app.services.notification_service import NotificationService
 from app.services.plan_service import PlanService
 from app.services.turnstile_service import verify_turnstile_token
-from app.utils.serialization import json_safe
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
@@ -134,7 +133,7 @@ def register(
     verify_link = f"{settings.cors_origins[0]}/verify-email?token={token}"
     _notification_service(settings, repos).send_email(
         email,
-        "Verify your HireShield AI account",
+        "Verify your TrustLens AI account",
         f"Verify your email address: {verify_link}",
     )
     return _user_out(user)
@@ -219,7 +218,7 @@ def login(
             user_id=user_id,
             user_email=str(user.get("email")),
             kind="new_device_signin",
-            title="New sign-in on your HireShield account",
+            title="New sign-in on your TrustLens account",
             body=(
                 f"A sign-in from {event['device_label']}{location} was not a recognised device. "
                 "If this was not you, change your password immediately."
@@ -323,7 +322,7 @@ def forgot_password(
         token = create_email_token(settings, str(user["_id"]), "password_reset")
         link = f"{settings.cors_origins[0]}/reset-password?token={token}"
         _notification_service(settings, repos).send_email(
-            str(user["email"]), "Reset your HireShield AI password", f"Reset your password: {link}"
+            str(user["email"]), "Reset your TrustLens AI password", f"Reset your password: {link}"
         )
         repos.audit.log(str(user["_id"]), "user.password_reset_requested")
     return {"status": "accepted"}
@@ -359,6 +358,6 @@ def resend_verification(
     token = create_email_token(settings, str(user["id"]), "verify_email")
     link = f"{settings.cors_origins[0]}/verify-email?token={token}"
     _notification_service(settings, repos).send_email(
-        str(user["email"]), "Verify your HireShield AI account", f"Verify your email address: {link}"
+        str(user["email"]), "Verify your TrustLens AI account", f"Verify your email address: {link}"
     )
     return {"status": "accepted"}

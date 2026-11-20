@@ -1,4 +1,4 @@
-# HireShield AI — Deployment Guide
+# TrustLens AI — Deployment Guide
 
 This document describes how the application is configured and deployed from the files in this repository. It does **not** assume that a live environment or production credentials exist. A local root `.env` holds Razorpay **test** keys and a generated webhook secret only; `.env.example` is the canonical template, and an old copy is kept only as `legacy-threat-intel/.env.backup` (it is not read by the application or Compose). Never commit `.env`.
 
@@ -17,7 +17,7 @@ This document describes how the application is configured and deployed from the 
 
 ## Architecture at a glance
 
-The Compose project is named `hireshield-ai`.
+The Compose project is named `trustlens-ai`.
 
 | Service | Image / build | Role | Published port | Persistent state |
 | --- | --- | --- | --- | --- |
@@ -123,7 +123,7 @@ The root `.env` is optional (`env_file` uses `required: false`). If present, it 
 | Key | Compose value |
 | --- | --- |
 | `MONGODB_URI` | `mongodb://mongodb:27017` |
-| `MONGODB_DB` | `${MONGODB_DB:-hireshield}` |
+| `MONGODB_DB` | `${MONGODB_DB:-trustlens}` |
 | `REDIS_URL` | `redis://redis:6379/0` |
 | `MODEL_DIR` | `/app/models` |
 | `DATA_DIR` | `/app/data` |
@@ -141,15 +141,15 @@ Other settings (for example `ENVIRONMENT`, `SECRET_KEY`, API credentials, retent
 | Group | Representative keys | Guidance |
 | --- | --- | --- |
 | Core | `APP_NAME`, `ENVIRONMENT`, `LOG_LEVEL`, `SECRET_KEY`, `JWT_ALGORITHM`, token lifetimes | Set `ENVIRONMENT=production` and a strong `SECRET_KEY` in production. |
-| Network | `CORS_ORIGINS`, `ALLOWED_HOSTS`, `RATE_LIMIT_PER_MINUTE` | Replace `ALLOWED_HOSTS=*` and localhost CORS values for real deployments. |
-| Persistence/workers | `MONGODB_URI`, `MONGODB_DB`, `REDIS_URL`, `CELERY_ENABLED`, `TASK_ALWAYS_EAGER`, scheduler intervals | Compose supplies the service URLs shown above. |
+| Network | `CORS_ORIGINS`, `ALLOWED_HOSTS`, `RATE_LIMIT_PER_MINUTE`, `RATE_LIMIT_WINDOW_SECONDS` | Replace `ALLOWED_HOSTS=*` and localhost CORS values for real deployments. Rate limiting is per-process; tune the window with the limit. |
+| Persistence/workers | `MONGODB_URI`, `MONGODB_DB`, `REDIS_URL`, `CELERY_ENABLED`, `TASK_ALWAYS_EAGER`, scheduler intervals, `RETENTION_ENABLED`, `RETENTION_DAYS`, `AUDIT_RETENTION_DAYS` | Compose supplies the service URLs shown above. Retention is enforced by a nightly beat task and the admin trigger; see [RETENTION.md](RETENTION.md). |
 | Storage/uploads | `MODEL_DIR`, `DATA_DIR`, `MAX_UPLOAD_MB`, `ALLOWED_UPLOAD_MIME`, URL fetch limits | Compose fixes model/data paths at `/app/models` and `/app/data`. |
 | Demo seeding | `SEED_DEMO_DATA`, `DEMO_*`, `ADMIN_*` | Development only. See production hardening below. |
 | Login verification | `TURNSTILE_ENABLED`, `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY`, `TURNSTILE_EXPECTED_HOSTNAME` | Both keys required. Create a Turnstile widget for the production hostname; the secret stays server-side. Without keys the API reports `not_configured` and login is not challenged. |
 | External intelligence | `VIRUSTOTAL_API_KEY`, `GOOGLE_*`, `MCA_*`, `RDAP_ENABLED`, `DNS_ENABLED`, `TLS_ENABLED` | All credentials are empty in the template; MCA has no official public API. |
 | Notifications | `SMTP_*`, `SMS_*`, `NOTIFY_EMAIL_ON_HIGH_RISK` | Empty provider settings mean notifications are unavailable. |
 | Billing | `RAZORPAY_*`, `STRIPE_*`, `PAYMENT_CURRENCY` | Paid access is granted only by verified webhooks; checkout returns `503` when unconfigured. Razorpay dashboard/webhook steps: [RAZORPAY_SETUP.md](RAZORPAY_SETUP.md). |
-| Plans/risk weights | `*_SCAN_LIMIT`, `RISK_WEIGHT_*` | Seeded defaults; plans are editable through the admin API and weights are normalised at runtime. |
+| Plans/risk weights | `*_SCAN_LIMIT`, `RISK_WEIGHT_CONTENT/URL/BRAND/THREAT/COMMUNITY`, `RISK_BAND_*_MAX` | Seeded defaults `0.30 / 0.25 / 0.25 / 0.10 / 0.10` and bands `19 / 39 / 59 / 79`; plans are editable through the admin API, weights are normalised at runtime, and band bounds must be ordered 0–100. Legacy six-weight variables are ignored. |
 
 The backend config validator rejects production startup when `ENVIRONMENT` is `production`/`prod` and `SECRET_KEY` is still the development default. Generate one with:
 
@@ -189,9 +189,23 @@ Uvicorn is started with `--proxy-headers`, and the frontend nginx sets `X-Forwar
 
 ## Backups and restore
 
-There is no backup script in this repository. The following are operator-run examples for the named volumes; run them from the repository root and adjust paths for your host.
+`scripts/backup_tool.py` provides a real logical backup/verify/restore workflow using JSON Lines and SHA-256 manifests. The backup contains personal data: keep it outside the web root, restrict permissions and encrypt it at rest. The lower-level `mongodump` and volume-snapshot examples below remain available for full-fidelity operational copies.
 
-Confirm the actual volume names first:
+```bash
+# Create a checksummed logical backup under backups/
+python scripts/backup_tool.py create --uri mongodb://localhost:27017 --db hireshield --out backups
+
+# Verify hashes and document counts without touching the database
+python scripts/backup_tool.py verify --dir backups/trustlens-<timestamp>
+
+# Restore into a scratch database; --confirm is mandatory
+python scripts/backup_tool.py restore --uri mongodb://localhost:27017 \
+  --db hireshield_restore_test --dir backups/trustlens-<timestamp> --confirm
+```
+
+Restore without `--confirm` returns `{"status": "refused"}` and makes no changes. A real production restore should be performed into an isolated database first and compared with the manifest before replacing service data.
+
+Confirm the actual Compose volume names first (the project name `hireshield-ai` is deliberately preserved):
 
 ```bash
 docker volume ls --filter name=hireshield-ai
@@ -312,8 +326,10 @@ Triggers: pushes to any branch, pull requests, and manual `workflow_dispatch`. I
 
 | Job | Steps |
 | --- | --- |
-| `backend` | Python 3.12 setup, install `backend/requirements-dev.txt`, `python -m compileall -q backend/app backend/scripts`, `python -m pytest backend/tests -q --tb=line`, training smoke into `${runner.temp}/hireshield-model-smoke` with `--log-level WARNING`. |
-| `frontend` | Node 20 setup, `npm ci`, `npm run build`, `npm run test -- --run` from `frontend/`. |
+| `backend` | Python 3.12 setup, install `backend/requirements-dev.txt`, `python -m pip check`, `compileall` over app/tests/scripts, `python -m pytest backend/tests -q --tb=line`, training smoke into `${runner.temp}/hireshield-model-smoke` with `--log-level WARNING`. |
+| `frontend` | Node 20 setup, `npm ci`, `npm ls --omit=dev`, `npm run build`, `npm run test -- --run` from `frontend/`. |
+| `browser-extension` | Node 20 setup and `npm test` from `browser-extension/` (permission and extraction contract tests). |
+| `security` | Blocking `python scripts/secret_scan.py`; report-only `pip-audit` and `npm audit --omit=dev --audit-level=high` JSON artifacts. Dependency updates are handled by `.github/dependabot.yml`. |
 | `containers` | `docker compose config --quiet`, build `hireshield-api:ci` from `backend/Dockerfile`, build `hireshield-frontend:ci` from `frontend/Dockerfile`. |
 
 ### `.github/workflows/container-release.yml`
@@ -339,6 +355,7 @@ docker compose pull && docker compose up -d
 - Compose has no `image:` for application services, so GHCR release artifacts require a deployment override.
 - Model artifacts are copied into the backend image; retraining does not automatically update a running container.
 - Health checks cover HTTP readiness and datastore pings but do not validate Celery beat schedules, queue depth, external integrations, or backup integrity.
-- MongoDB/Redis data durability depends on the named volumes and the operator procedures above; no automated backup/restore is included.
+- MongoDB/Redis data durability depends on the named volumes and the operator procedures above. A logical backup/verify/restore tool is included, but scheduling, encryption at rest and restore drills remain operator responsibilities.
+- `pip-audit` reports `python-jose`/`ecdsa` advisories without published fixes; npm reports two moderate React Router advisories. See [SECURITY.md](SECURITY.md) for mitigations and upgrade path.
 - Development falls back to in-memory MongoDB and eager Celery; that behavior is intentionally unavailable in production.
 - In this working tree `docker compose config --quiet` passed, but Docker image builds could not be executed locally because the Docker daemon was unavailable. CI performs those builds on a runner with Docker.

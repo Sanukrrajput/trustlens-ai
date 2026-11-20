@@ -1,4 +1,4 @@
-"""Machine-learning package for HireShield AI.
+"""Machine-learning package for TrustLens AI.
 
 The subpackages are deliberately split into:
 

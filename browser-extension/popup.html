@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>TrustLens AI — Verify this page</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header class="header">
+      <div class="mark" aria-hidden="true">TL</div>
+      <div>
+        <h1>TrustLens AI</h1>
+        <p>Verify the page you are viewing</p>
+      </div>
+    </header>
+
+    <main>
+      <section class="panel" aria-labelledby="analyse-heading">
+        <h2 id="analyse-heading">Current page</h2>
+        <p class="muted" id="page-label">No page has been checked in this session.</p>
+        <button id="analyse" class="primary" type="button">Analyse this page</button>
+        <p class="fine">Runs only when you click. External lookups stay off. Nothing is collected in the background.</p>
+      </section>
+
+      <section class="panel result" id="result" hidden aria-live="polite">
+        <h2>Assessment</h2>
+        <p class="category" id="risk-category"></p>
+        <p class="score" id="risk-score"></p>
+        <p class="muted" id="risk-summary"></p>
+        <p class="fine" id="evidence-note"></p>
+        <ul id="indicators"></ul>
+        <a id="open-report" href="#" target="_blank" rel="noopener noreferrer" hidden>Open full report in the web app</a>
+      </section>
+
+      <p class="error" id="error" role="alert" hidden></p>
+
+      <details class="panel" id="settings">
+        <summary>Connection settings</summary>
+        <label for="api-base">API base URL</label>
+        <input id="api-base" type="url" placeholder="https://api.example.com/api/v1" spellcheck="false" />
+        <label for="token">Access token</label>
+        <input id="token" type="password" placeholder="Bearer token from the web app" spellcheck="false" />
+        <label for="web-base">Web app URL (optional)</label>
+        <input id="web-base" type="url" placeholder="https://app.example.com" spellcheck="false" />
+        <div class="settings-actions">
+          <button id="save-settings" type="button">Save settings</button>
+          <button id="clear-settings" class="quiet" type="button">Clear settings</button>
+        </div>
+        <p class="fine">Stored in this browser profile only. The token is never sent anywhere except your configured API base.</p>
+      </details>
+    </main>
+
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

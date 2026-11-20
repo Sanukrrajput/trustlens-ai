@@ -54,7 +54,7 @@ export function AuthShell({
           {footer && <div className="mt-6 text-center text-sm text-muted">{footer}</div>}
           <p className="mt-10 text-center text-xs text-muted">
             <Link className="hover:text-ink" to="/privacy">Privacy</Link> ·{' '}
-            <Link className="hover:text-ink" to="/terms">Terms</Link> · HireShield AI
+            <Link className="hover:text-ink" to="/terms">Terms</Link> · TrustLens AI
           </p>
         </div>
       </div>

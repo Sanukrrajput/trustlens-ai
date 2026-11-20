@@ -17,6 +17,20 @@ EvidenceStatus = Literal[
     "technical_limitation",
     "supportive",
 ]
+ReportCategory = Literal["correction", "community"]
+ReportModerationState = Literal[
+    "pending",
+    "verified",
+    "corroborated",
+    "false_report",
+    "dismissed",
+]
+CommunityClaimType = Literal[
+    "missed_fraud",
+    "impersonation",
+    "unauthorized_campaign",
+    "other",
+]
 
 
 class ORMModel(BaseModel):
@@ -127,6 +141,26 @@ class JobAnalysisRequest(ORMModel):
     client_request_id: str | None = Field(default=None, max_length=128)
 
 
+class OfferAnalysisRequest(ORMModel):
+    """Generic online-offer submission (advert, giveaway, scholarship, investment...)."""
+
+    text: str = Field(min_length=20, max_length=200_000)
+    offer_category: Literal[
+        "advertisement",
+        "giveaway",
+        "scholarship",
+        "investment",
+        "recruitment",
+        "promotion",
+        "other",
+    ] = "other"
+    company_name: str | None = Field(default=None, max_length=200)
+    source_url: str | None = Field(default=None, max_length=2048)
+    consent_external_lookups: bool = False
+    consent_corporate_registry_lookup: bool = False
+    client_request_id: str | None = Field(default=None, max_length=128)
+
+
 class MessageAnalysisRequest(ORMModel):
     text: str = Field(min_length=5, max_length=100_000)
     channel: Literal["email", "sms", "whatsapp", "unknown"] = "unknown"
@@ -154,6 +188,9 @@ class CompanyVerifyRequest(ORMModel):
     consent_corporate_registry_lookup: bool = False
 
 
+SignalCategory = Literal["content", "url", "brand", "threat", "community", "coverage"]
+
+
 class EvidenceIndicator(ORMModel):
     name: str
     status: EvidenceStatus
@@ -166,6 +203,7 @@ class EvidenceIndicator(ORMModel):
     independently_verified: bool = False
     expires_at: datetime | None = None
     weight: float = Field(default=1.0, ge=0.0, le=2.0)
+    signal_category: SignalCategory = "content"
 
 
 class ModelPrediction(ORMModel):
@@ -186,8 +224,15 @@ class RiskAssessment(ORMModel):
     evidence_summary: list[str] = Field(default_factory=list)
     recommended_actions: list[str] = Field(default_factory=list)
     confidence: float = Field(ge=0.0, le=1.0)
+    # Complement of ``confidence``. It describes uncertainty about the available
+    # evidence, not the probability that an offer is fraudulent.
+    uncertainty: float = Field(default=0.5, ge=0.0, le=1.0)
     data_coverage: float = Field(ge=0.0, le=1.0)
     weights_version: str
+    # Effective normalised weights actually applied to this assessment.
+    signal_weights: dict[str, float] = Field(default_factory=dict)
+    # Signal categories with no available evidence; never treated as clean.
+    unavailable_signals: list[str] = Field(default_factory=list)
     component_scores: dict[str, float] = Field(default_factory=dict)
 
 
@@ -203,9 +248,50 @@ class ExtractedEntities(ORMModel):
     locations: list[str] = Field(default_factory=list)
 
 
+class ThreatSourceRegister(BaseModel):
+    """Register an optional public JSON feed. URLs are SSRF-validated on write."""
+
+    source_id: str = Field(min_length=2, max_length=80, pattern=r"^[a-zA-Z0-9_-]+$")
+    name: str = Field(min_length=2, max_length=120)
+    kind: Literal["public_json_feed", "import"] = "public_json_feed"
+    url: str | None = Field(default=None, max_length=2048)
+    enabled: bool = True
+    description: str = Field(default="", max_length=500)
+
+
+class ThreatIndicatorIn(BaseModel):
+    """A single operator-supplied or feed-supplied indicator observation."""
+
+    kind: Literal["domain", "url", "email", "phone", "brand", "ip", "fingerprint", "generic"]
+    value: str = Field(min_length=1, max_length=512)
+    status: EvidenceStatus = "unverified"
+    severity: float = Field(default=0.5, ge=0.0, le=1.0)
+    confidence: float = Field(default=0.5, ge=0.0, le=1.0)
+    description: str = Field(default="", max_length=1000)
+    reference_url: str | None = Field(default=None, max_length=2048)
+    source_url: str | None = Field(default=None, max_length=2048)
+    independently_verified: bool = False
+    ttl_days: int = Field(default=90, ge=1, le=365)
+
+
+class ThreatImport(BaseModel):
+    indicators: list[ThreatIndicatorIn] = Field(default_factory=list, max_length=1000)
+
+
+class EvidenceSource(ORMModel):
+    """One checked source with honest status and timestamps."""
+
+    name: str
+    status: str
+    attempted_at: datetime | None = None
+    observed_at: datetime | None = None
+    detail: str | None = None
+
+
 class AnalysisResult(ORMModel):
     id: str
-    analysis_type: Literal["job", "message", "url", "document", "monitoring"]
+    analysis_type: Literal["job", "message", "url", "document", "monitoring", "offer"]
+    offer_category: str | None = None
     status: Literal["pending", "completed", "failed"]
     user_id: str
     created_at: datetime
@@ -217,7 +303,15 @@ class AnalysisResult(ORMModel):
     company_intelligence: dict[str, Any] = Field(default_factory=dict)
     message_intelligence: dict[str, Any] = Field(default_factory=dict)
     historical_intelligence: dict[str, Any] = Field(default_factory=dict)
+    image_intelligence: dict[str, Any] = Field(default_factory=dict)
+    brand_intelligence: dict[str, Any] = Field(default_factory=dict)
+    threat_intelligence: dict[str, Any] = Field(default_factory=dict)
+    # Moderated, independently corroborated community reports. A single report
+    # never produces an indicator here.
+    community_intelligence: dict[str, Any] = Field(default_factory=dict)
     indicators: list[EvidenceIndicator] = Field(default_factory=list)
+    evidence_sources: list[EvidenceSource] = Field(default_factory=list)
+    evidence_collected_at: datetime | None = None
     missing_evidence: list[str] = Field(default_factory=list)
     technical_limitations: list[str] = Field(default_factory=list)
     risk: RiskAssessment
@@ -330,21 +424,57 @@ class SubscriptionOut(ORMModel):
     cancel_at_period_end: bool = False
 
 
+class ReporterReputation(ORMModel):
+    """Transparent snapshot derived from this reporter's moderation history."""
+
+    score: float = Field(ge=0.0, le=1.0)
+    basis: dict[str, int] = Field(default_factory=dict)
+    computed_at: datetime
+
+
 class UserReportCreate(ORMModel):
+    """A correction to a specific analysis. This is never community evidence."""
+
     analysis_id: str
     report_type: Literal["false_positive", "missed_fraud", "identity_correction", "other"]
     details: str = Field(min_length=10, max_length=5000)
-    evidence_url: str | None = None
+    evidence_url: str | None = Field(default=None, max_length=2048)
+
+
+class CommunityReportCreate(ORMModel):
+    """A separate community allegation about the entity behind an analysis."""
+
+    analysis_id: str
+    claim_type: CommunityClaimType
+    details: str = Field(min_length=10, max_length=5000)
+    evidence_url: str | None = Field(default=None, max_length=2048)
 
 
 class UserReportOut(ORMModel):
     id: str
     analysis_id: str
     user_id: str
+    category: ReportCategory
     report_type: str
     details: str
     status: str
+    moderation_state: ReportModerationState
+    entity_key: str = ""
+    claim_key: str = ""
+    dedupe_key: str = ""
+    duplicate_group_key: str = ""
+    duplicate_of: str | None = None
+    duplicate_count: int = 0
+    duplicate: bool = False
+    reporter_reputation: ReporterReputation
+    reviewed_by: str | None = None
+    reviewed_at: datetime | None = None
+    review_notes: str | None = None
+    is_false_report: bool = False
+    false_report_reason: str | None = None
+    evidence_url: str | None = None
     created_at: datetime
+    updated_at: datetime | None = None
 
 
 class TaskStatusOut(ORMModel):

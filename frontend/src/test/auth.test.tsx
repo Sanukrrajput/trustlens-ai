@@ -104,7 +104,7 @@ describe('authentication flow', () => {
   });
 
   it('prefills remembered email and shows the previous sign-in context', async () => {
-    localStorage.setItem('hireshield.remembered_signin', JSON.stringify({
+    localStorage.setItem('trustlens.remembered_signin', JSON.stringify({
       email: 'asha@example.com',
       device_id: 'device-alpha',
       previous_signin: {
@@ -140,7 +140,7 @@ describe('authentication flow', () => {
       provider: 'cloudflare_turnstile',
       note: 'Protected by Cloudflare Turnstile.',
     });
-    localStorage.setItem('hireshield.remembered_signin', JSON.stringify({
+    localStorage.setItem('trustlens.remembered_signin', JSON.stringify({
       email: 'asha@example.com',
       saved_at: '2026-11-18T10:00:00Z',
     }));

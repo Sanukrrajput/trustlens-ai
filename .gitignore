@@ -28,6 +28,11 @@ reports/*.csv
 reports/*.json
 *.log
 
+# Backups (logical dumps contain personal data and must never be committed)
+backups/
+*.dump
+*.archive
+
 # Editors / OS
 .DS_Store
 Thumbs.db

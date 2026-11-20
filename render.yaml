@@ -1,4 +1,4 @@
-# HireShield AI — Render Blueprint (free plan)
+# TrustLens AI — Render Blueprint (free plan)
 #
 # This variant uses only Render resources with a Free compute plan: one free web
 # service (API) and a free static site. Render does NOT offer free background
@@ -21,7 +21,7 @@ envVarGroups:
   - name: hireshield-backend
     envVars:
       - key: APP_NAME
-        value: HireShield AI
+        value: TrustLens AI
       - key: ENVIRONMENT
         value: production
       - key: LOG_LEVEL

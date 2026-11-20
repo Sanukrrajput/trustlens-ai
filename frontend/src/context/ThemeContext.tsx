@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
 type Theme = 'light' | 'dark';
-const THEME_KEY = 'hireshield.theme';
+const THEME_KEY = 'trustlens.theme';
 
 interface ThemeContextValue {
   theme: Theme;

@@ -26,7 +26,7 @@ import { errorText, formatDateTime, relativeTime, titleCase } from '../lib/utils
 import type { NotificationOut, SigninEvent } from '../types';
 
 type SettingsTab = 'notifications' | 'preferences' | 'privacy' | 'security';
-const PREFS_KEY = 'hireshield.local_preferences';
+const PREFS_KEY = 'trustlens.local_preferences';
 
 interface LocalPreferences {
   emailDigest: boolean;
@@ -162,7 +162,7 @@ export function SettingsPage() {
       {tab === 'preferences' && (
         <div className="grid gap-6 lg:grid-cols-2">
           <Card title="Appearance">
-            <p className="mb-4 text-sm text-muted">Choose how HireShield looks on this device.</p>
+            <p className="mb-4 text-sm text-muted">Choose how TrustLens looks on this device.</p>
             <div className="grid grid-cols-2 gap-3">
               {(['light', 'dark'] as const).map((value) => (
                 <button

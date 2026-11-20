@@ -377,10 +377,69 @@ class TaskStatusRepository(BaseRepository):
         return self.col.find_one({"task_id": task_id})
 
 
+class ThreatIndicatorRepository(BaseRepository):
+    collection_name = "threat_indicators"
+
+    def upsert(self, dedupe_key: str, document: dict[str, Any]) -> dict[str, Any]:
+        document["dedupe_key"] = dedupe_key
+        document["updated_at"] = utcnow()
+        self.col.update_one({"dedupe_key": dedupe_key}, {"$set": document}, upsert=True)
+        return self.col.find_one({"dedupe_key": dedupe_key})
+
+    def active_matches(self, values: Iterable[str], kinds: Iterable[str] | None = None) -> list[dict[str, Any]]:
+        values = list(values)
+        if not values:
+            return []
+        now = utcnow()
+        query: dict[str, Any] = {
+            "normalized_value": {"$in": values},
+            "$or": [{"expires_at": None}, {"expires_at": {"$gt": now}}],
+        }
+        kinds = list(kinds or [])
+        if kinds:
+            query["kind"] = {"$in": kinds}
+        return self.find(query, sort=[("severity", DESCENDING)], limit=200)
+
+
+class ThreatSourceRepository(BaseRepository):
+    collection_name = "threat_sources"
+
+    def upsert(self, source_id: str, document: dict[str, Any]) -> dict[str, Any]:
+        document["source_id"] = source_id
+        document["updated_at"] = utcnow()
+        self.col.update_one({"source_id": source_id}, {"$set": document}, upsert=True)
+        return self.col.find_one({"source_id": source_id})
+
+
 class GenericRepository(BaseRepository):
     def __init__(self, mongo: MongoDBService, collection_name: str) -> None:
         super().__init__(mongo)
         self.collection_name = collection_name
+
+
+class UserReportRepository(GenericRepository):
+    collection_name = "user_reports"
+
+    def __init__(self, mongo: MongoDBService) -> None:
+        super().__init__(mongo, self.collection_name)
+
+    def by_dedupe_key(self, dedupe_key: str) -> dict[str, Any] | None:
+        return self.col.find_one({"dedupe_key": dedupe_key})
+
+    def group(self, duplicate_group_key: str, limit: int = 500) -> list[dict[str, Any]]:
+        return self.find(
+            {"duplicate_group_key": duplicate_group_key},
+            sort=[("created_at", ASCENDING)],
+            limit=limit,
+        )
+
+    def for_user(self, user_id: str, limit: int = 500) -> list[dict[str, Any]]:
+        return self.find({"user_id": user_id}, sort=[("created_at", DESCENDING)], limit=limit)
+
+    def for_entity(self, entity_key: str, limit: int = 1000) -> list[dict[str, Any]]:
+        if not entity_key:
+            return []
+        return self.find({"entity_key": entity_key}, sort=[("created_at", DESCENDING)], limit=limit)
 
 
 class SupportMessageRepository(BaseRepository):
@@ -418,12 +477,14 @@ class Repositories:
         self.models = ModelRepository(mongo)
         self.tasks = TaskStatusRepository(mongo)
         self.support_messages = SupportMessageRepository(mongo)
-        self.user_reports = GenericRepository(mongo, "user_reports")
+        self.user_reports = UserReportRepository(mongo)
         self.job_listings = GenericRepository(mongo, "job_listings")
         self.url_scans = GenericRepository(mongo, "url_scans")
         self.message_scans = GenericRepository(mongo, "message_scans")
         self.document_scans = GenericRepository(mongo, "document_scans")
         self.risk_indicators = GenericRepository(mongo, "risk_indicators")
+        self.threat_indicators = ThreatIndicatorRepository(mongo)
+        self.threat_sources = ThreatSourceRepository(mongo)
         self.processed_events = GenericRepository(mongo, "processed_events")
         self.blacklist = GenericRepository(mongo, "token_blacklist")
 

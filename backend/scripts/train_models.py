@@ -34,7 +34,7 @@ def _resolve_storage_path(value: str) -> str:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Train and publish HireShield AI models")
+    parser = argparse.ArgumentParser(description="Train and publish TrustLens AI models")
     parser.add_argument("--data-dir", default=None, help="Dataset directory (default: settings.data_dir)")
     parser.add_argument("--model-dir", default=None, help="Artifact directory (default: settings.model_dir)")
     parser.add_argument("--log-level", default="INFO", help="Logging level")

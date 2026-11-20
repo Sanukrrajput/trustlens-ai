@@ -9,7 +9,7 @@ interface TurnstileWindow extends Window {
   turnstile?: TurnstileApi;
 }
 
-const SCRIPT_ID = 'hireshield-turnstile-script';
+const SCRIPT_ID = 'trustlens-turnstile-script';
 const SCRIPT_URL = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
 
 /** Explicitly rendered Cloudflare Turnstile widget. No token is invented locally. */

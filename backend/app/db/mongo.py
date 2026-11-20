@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
 from typing import Any
 
 from pymongo import ASCENDING, DESCENDING, IndexModel, MongoClient
@@ -27,6 +26,8 @@ COLLECTIONS = [
     "document_scans",
     "fraud_analyses",
     "risk_indicators",
+    "threat_indicators",
+    "threat_sources",
     "notifications",
     "monitoring_tasks",
     "user_reports",
@@ -68,6 +69,43 @@ VALIDATORS: dict[str, dict[str, Any]] = {
             "status": {"bsonType": "string"},
             "created_at": {"bsonType": "date"},
             "risk": {"bsonType": "object"},
+        },
+    },
+    "threat_indicators": {
+        "bsonType": "object",
+        "required": ["dedupe_key", "kind", "normalized_value", "source_id", "created_at"],
+        "properties": {
+            "dedupe_key": {"bsonType": "string"},
+            "kind": {"bsonType": "string"},
+            "normalized_value": {"bsonType": "string"},
+            "source_id": {"bsonType": "string"},
+            "created_at": {"bsonType": "date"},
+        },
+    },
+    "threat_sources": {
+        "bsonType": "object",
+        "required": ["source_id", "name", "kind", "enabled", "created_at"],
+        "properties": {
+            "source_id": {"bsonType": "string"},
+            "name": {"bsonType": "string"},
+            "kind": {"bsonType": "string"},
+            "enabled": {"bsonType": "bool"},
+            "created_at": {"bsonType": "date"},
+        },
+    },
+    "user_reports": {
+        "bsonType": "object",
+        "required": ["analysis_id", "user_id", "category", "report_type", "status", "moderation_state", "created_at"],
+        "properties": {
+            "analysis_id": {"bsonType": "string"},
+            "user_id": {"bsonType": "string"},
+            "category": {"enum": ["correction", "community"]},
+            "report_type": {"bsonType": "string"},
+            "status": {"bsonType": "string"},
+            "moderation_state": {
+                "enum": ["pending", "verified", "corroborated", "false_report", "dismissed"]
+            },
+            "created_at": {"bsonType": "date"},
         },
     },
     "notifications": {
@@ -123,6 +161,14 @@ INDEXES: dict[str, list[IndexModel]] = {
         IndexModel([("client_request_id", ASCENDING), ("user_id", ASCENDING)], unique=True, sparse=True, name="uniq_idempotency"),
         IndexModel([("created_at", ASCENDING)], name="analysis_ttl", expireAfterSeconds=365 * 24 * 3600),
     ],
+    "threat_indicators": [
+        IndexModel([("dedupe_key", ASCENDING)], unique=True, name="uniq_threat_indicator"),
+        IndexModel([("kind", ASCENDING), ("normalized_value", ASCENDING)], name="threat_lookup"),
+        IndexModel([("expires_at", ASCENDING)], name="threat_ttl", expireAfterSeconds=0),
+    ],
+    "threat_sources": [
+        IndexModel([("source_id", ASCENDING)], unique=True, name="uniq_threat_source"),
+    ],
     "notifications": [
         IndexModel([("user_id", ASCENDING), ("read", ASCENDING), ("created_at", DESCENDING)], name="user_unread"),
         IndexModel([("dedupe_key", ASCENDING)], unique=True, sparse=True, name="uniq_dedupe"),
@@ -152,6 +198,11 @@ INDEXES: dict[str, list[IndexModel]] = {
     ],
     "user_reports": [
         IndexModel([("analysis_id", ASCENDING), ("user_id", ASCENDING)], name="analysis_user"),
+        # Unique per reporter and claim, so resubmitting the same report is a
+        # detectable duplicate rather than a second independent voice.
+        IndexModel([("dedupe_key", ASCENDING)], unique=True, sparse=True, name="uniq_user_report_dedupe"),
+        IndexModel([("duplicate_group_key", ASCENDING)], name="report_duplicate_group"),
+        IndexModel([("entity_key", ASCENDING), ("moderation_state", ASCENDING)], name="entity_moderation"),
     ],
     "api_usage": [
         IndexModel([("user_id", ASCENDING), ("bucket", ASCENDING)], unique=True, name="uniq_usage_bucket"),

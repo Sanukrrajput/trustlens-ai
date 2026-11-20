@@ -7,13 +7,14 @@ from datetime import timedelta
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, model_validator
 
 from app.api.deps import get_app_settings, get_repositories, require_admin
 from app.core.config import Settings
 from app.core.security import ROLE_HIERarchy, create_email_token, hash_password, utcnow
 from app.db.repositories import Repositories, public
 from app.schemas import UserOut
+from app.services.community_service import STATE_AUDIT_ACTION, STATE_TO_STATUS, apply_moderation
 from app.services.notification_service import NotificationService
 from app.services.plan_service import PlanService
 from app.utils.serialization import json_safe
@@ -57,8 +58,26 @@ class PlanChange(BaseModel):
 
 
 class ReportReview(BaseModel):
-    status: str = Field(default="reviewed", pattern="^(reviewed|dismissed|actioned)$")
+    """Moderator decision. Legacy ``status`` remains accepted for compatibility.
+
+    ``status='reviewed'`` deliberately maps to the pending moderation state: it
+    records that a report was seen, not that its allegation was verified.
+    """
+
+    status: str | None = Field(default=None, pattern="^(reviewed|dismissed|actioned)$")
+    moderation_state: str | None = Field(
+        default=None,
+        pattern="^(pending|verified|corroborated|false_report|dismissed)$",
+    )
     review_notes: str | None = Field(default=None, max_length=2000)
+    false_report_reason: str | None = Field(default=None, max_length=1000)
+
+
+    @model_validator(mode="after")
+    def requires_decision(self) -> "ReportReview":
+        if not self.status and not self.moderation_state:
+            raise ValueError("status or moderation_state is required")
+        return self
 
 
 def _pair_list(counts: dict[str, int]) -> list[dict[str, Any]]:
@@ -183,7 +202,7 @@ def create_user(
     verify_link = f"{settings.cors_origins[0]}/verify-email?token={token}"
     NotificationService(settings, repos).send_email(
         email,
-        "Your HireShield AI account was created",
+        "Your TrustLens AI account was created",
         f"An administrator created your account. Verify your email address: {verify_link}",
     )
     return UserOut.model_validate(public(user))
@@ -273,14 +292,36 @@ def review_user_report(
     repos: Repositories = Depends(get_repositories),
     admin: dict[str, Any] = Depends(require_admin),
 ) -> dict[str, Any]:
-    doc = repos.user_reports.get(report_id)
-    if not doc:
-        raise HTTPException(status_code=404, detail="report not found")
-    updated = repos.user_reports.update(
-        report_id,
-        {"status": payload.status, "review_notes": payload.review_notes, "reviewed_by": str(admin["id"])},
+    outcome, updated, previous_state, new_state = apply_moderation(
+        repos=repos,
+        report_id=report_id,
+        admin_id=str(admin["id"]),
+        status=payload.status,
+        moderation_state=payload.moderation_state,
+        review_notes=payload.review_notes,
+        false_report_reason=payload.false_report_reason,
     )
-    repos.audit.log(str(admin["id"]), "admin.report_reviewed", target=report_id)
+    if outcome == "not_found":
+        raise HTTPException(status_code=404, detail="report not found")
+    if outcome == "invalid_transition":
+        raise HTTPException(status_code=409, detail=f"invalid moderation transition: {previous_state} -> {new_state}")
+    if outcome == "reason_required":
+        raise HTTPException(status_code=400, detail="a false_report_reason is required for false reports")
+
+    metadata = {
+        "previous_state": previous_state,
+        "moderation_state": new_state,
+        "status": payload.status or STATE_TO_STATUS.get(new_state),
+        "review_notes": payload.review_notes,
+        "false_report_reason": payload.false_report_reason,
+    }
+    repos.audit.log(str(admin["id"]), "admin.report_reviewed", target=report_id, metadata=metadata)
+    repos.audit.log(
+        str(admin["id"]),
+        STATE_AUDIT_ACTION.get(new_state, "admin.report_reviewed"),
+        target=report_id,
+        metadata=metadata,
+    )
     return json_safe(public(updated) or {}) or {}
 
 

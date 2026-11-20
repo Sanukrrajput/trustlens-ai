@@ -38,7 +38,7 @@ function baseOptions(): RazorpayCheckoutOptions {
     key: 'rzp_test_local',
     amount: 29900,
     currency: 'INR',
-    name: 'HireShield AI — Professional',
+    name: 'TrustLens AI — Professional',
     order_id: 'order_test_1',
   };
 }

@@ -1,4 +1,4 @@
-# HireShield AI — Commercial Brief
+# TrustLens AI — Commercial Brief
 
 **Status:** product and commercial planning draft, based strictly on the current code and seeded configuration.
 **Evidence date:** 18 November 2026. No external API credentials, payment providers or production deployment are configured.
@@ -7,7 +7,7 @@
 
 ## 1. Product in one paragraph
 
-HireShield AI is a commercial SaaS platform that screens recruitment content (job posts, messages, URLs and documents) and companies for fraud indicators. It returns an explainable 0–100 risk band, the evidence behind it, the sources attempted and succeeded, explicit limitations, and a downloadable report. External corroboration is consent-gated; unconfigured providers are reported as unavailable rather than simulated. Risk scores are decision support, not determinations of legitimacy.
+TrustLens AI is a commercial SaaS platform that screens recruitment content (job posts, messages, URLs and documents) and companies for fraud indicators. It returns an explainable 0–100 risk band, the evidence behind it, the sources attempted and succeeded, explicit limitations, and a downloadable report. External corroboration is consent-gated; unconfigured providers are reported as unavailable rather than simulated. Risk scores are decision support, not determinations of legitimacy.
 
 ---
 
@@ -26,7 +26,7 @@ HireShield AI is a commercial SaaS platform that screens recruitment content (jo
 
 ## 3. Value propositions
 
-1. **Explainability over black boxes.** Six weighted components, named indicators, source provenance and an explicit `inconclusive` state. Missing evidence is never reported as a clean domain or company.
+1. **Explainability over black boxes.** Five weighted signal categories (30/25/25/10/10), named indicators, timestamped source provenance and an explicit `inconclusive` state. Missing evidence is never reported as a clean domain or company.
 2. **Consent-first corroboration.** `consent_external_lookups` gates external URL/domain/company work; `consent_corporate_registry_lookup` is a separate gate on company verification. Sources attempted and succeeded are recorded in the report.
 3. **Evidence-backed deliverables.** JSON and PDF reports with risk, indicators, model predictions, limitations, recommended actions and missing evidence; CSV export for administrators.
 4. **Operational honesty.** Unconfigured integrations return `not_configured`; checkout without provider configuration returns `503`; paid access only follows verified webhooks.
@@ -94,7 +94,7 @@ Known from code/configuration:
 | Scan entitlement | 10 / 100 / 500 / 5,000 / 100,000 per plan; enforced on completed analyses. |
 | Model inference | Local `joblib` artifacts; no per-call paid model API in the approved path. |
 | External lookups | RDAP/DNS/TLS free-by-configuration; VirusTotal/Web Risk/MCA/registry fees are provider- and quota-dependent and currently unconfigured. |
-| Storage | MongoDB documents, reports (PDF stored as base64), audit and payment events; `RETENTION_DAYS=365`, `AUDIT_RETENTION_DAYS=730` are configured but no purge job was found. |
+| Storage | MongoDB documents, reports (PDF stored as base64), audit and payment events; `RETENTION_DAYS=365`, `AUDIT_RETENTION_DAYS=730` are now enforced by the Stage 8 purge (see [RETENTION.md](RETENTION.md)). `payments` is intentionally excluded pending a legally approved schedule. |
 | Delivery | Email/SMS skipped unless SMTP/SMS providers are configured. |
 | Payment fees | Provider-dependent; not modelled in code. |
 

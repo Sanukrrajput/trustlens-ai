@@ -45,7 +45,7 @@ export function BillingPage() {
           key: response.key_id,
           amount: response.amount,
           currency: response.currency,
-          name: response.name || 'HireShield AI',
+          name: response.name || 'TrustLens AI',
           description: response.description || `${interval} subscription`,
           order_id: response.checkout_id,
           prefill: { name: user?.full_name, email: user?.email },
@@ -203,7 +203,7 @@ export function BillingPage() {
 
       <div className="mt-6 flex items-start gap-3 rounded-xl border border-line bg-surface p-4 text-xs text-muted">
         <Info className="mt-0.5 h-4 w-4 shrink-0 text-brand-500" />
-        <p>Payments are processed by the configured provider. HireShield does not store card details. Billing configuration is read from the backend so prices stay current.</p>
+        <p>Payments are processed by the configured provider. TrustLens does not store card details. Billing configuration is read from the backend so prices stay current.</p>
       </div>
       <p className="mt-4 flex items-center gap-2 text-xs text-muted"><ShieldCheck className="h-4 w-4 text-safe" /> Need a change? Contact your administrator or support channel.</p>
     </div>

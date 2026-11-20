@@ -306,7 +306,7 @@ class DomainAnalyser:
             )
         url = f"https://safebrowsing.googleapis.com/v4/threatMatches:find?key={quote(key, safe='')}"
         payload = {
-            "client": {"clientId": "hireshield-ai", "clientVersion": "1.0"},
+            "client": {"clientId": "trustlens-ai", "clientVersion": "1.0"},
             "threatInfo": {
                 "threatTypes": [
                     "MALWARE",

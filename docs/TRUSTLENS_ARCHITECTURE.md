@@ -1,6 +1,6 @@
 # TrustLens AI — Target Architecture and Implementation Mapping
 
-**Status:** Stage 1 of the derived execution plan ([TRUSTLENS_ROADMAP.md](TRUSTLENS_ROADMAP.md)).
+**Status:** Stage 8 complete; all stages of the derived execution plan are delivered ([TRUSTLENS_ROADMAP.md](TRUSTLENS_ROADMAP.md)).
 **Scope:** This document describes the architecture we are converging on and maps each layer to code that exists in this repository today. It is evidence-based: claims of existing functionality reference source paths. Planned capabilities are marked **PLANNED** and are not represented as working features.
 
 ## 1. Product contract
@@ -21,26 +21,26 @@ The existing `HireShield AI` product in this repository is the implementation ba
 
 | Spec layer | Required capability | Current implementation | Gap / action |
 | --- | --- | --- | --- |
-| 1. User interface | React web app | `frontend/src/` — React 18 + TS + Vite + Tailwind; landing, auth, dashboard, scanner, report, company, monitoring, billing, admin, settings, legal pages | Rebrand copy; broaden scanner from jobs to offers (Stage 3). Extension and mobile are Stage 7. |
-| 2. Security gateway | Validation, rate limiting, auth, abuse prevention, free local WAF point | FastAPI middleware in `backend/app/main.py`, security headers, TrustedHost, CORS; `enforce_rate_limit` and RBAC dependencies in `backend/app/api/deps.py`; Pydantic validation in `backend/app/schemas.py` | Rate limit is in-process and hard-coded; make it configurable and document a reverse-proxy WAF integration point (Stage 8). |
-| 3. Identity and access | Registration, Argon2id, sessions, RBAC, recovery, deletion, object-level auth | `backend/app/api/routes/auth.py`, `backend/app/core/security.py`, `backend/app/api/deps.py`; JWT access/refresh with `jti` revocation; roles `user/student/staff/admin/owner`; ownership checks in services | Self-service account/data deletion and export are absent (Stage 8). |
-| 4. Backend | Routing, orchestration, DB ops, reports, audit | `backend/app/main.py`, `backend/app/api/routes/*`, `backend/app/services/analysis_service.py`, `backend/app/utils/reporting.py`, `backend/app/db/repositories.py` | Add generic offer routes and report fields (Stages 3 and 5). |
-| 5. Background processing | Redis/Celery when needed; local zero-cost mode | `backend/app/workers/celery_app.py` with eager in-process fallback; Compose defines Redis, worker and beat | Queue interface already modular; document local mode and add monitoring to Stage 8. |
-| 6. Orchestrator | Job lifecycle, dispatch, normalise, score, persist, return | `AnalysisService.run()` in `backend/app/services/analysis_service.py` handles idempotency, extraction, engine dispatch, risk scoring, persistence and notification | Expose explicit stages and image/brand/threat engines (Stages 4–5). |
+| 1. User interface | React web app | `frontend/src/` — React 18 + TS + Vite + Tailwind; landing, auth, dashboard, scanner, report, company, monitoring, billing, admin, settings, legal pages; `browser-extension/` MV3 popup; `mobile-app/` plan | Stages 2–3 and 7 complete; mobile remains a documented plan, not a shipped app. |
+| 2. Security gateway | Validation, rate limiting, auth, abuse prevention, free local WAF point | FastAPI middleware in `backend/app/main.py`, security headers, request IDs, TrustedHost, CORS; configurable `enforce_rate_limit` with `Retry-After` and RBAC dependencies in `backend/app/api/deps.py`; Pydantic validation in `backend/app/schemas.py` | Stage 8 complete for single-process rate limiting; a shared reverse-proxy/gateway limiter and WAF remain an operator responsibility. |
+| 3. Identity and access | Registration, Argon2id, sessions, RBAC, recovery, deletion, object-level auth | `backend/app/api/routes/auth.py`, `backend/app/core/security.py`, `backend/app/api/deps.py`; JWT access/refresh with `jti` revocation; roles `user/student/staff/admin/owner`; ownership checks in services | Self-service account/data export and deletion remain out of scope; Stage 8 added config-driven retention instead. |
+| 4. Backend | Routing, orchestration, DB ops, reports, audit | `backend/app/main.py`, `backend/app/api/routes/*`, `backend/app/services/analysis_service.py`, `backend/app/utils/reporting.py`, `backend/app/db/repositories.py` | Stages 3, 5 and 6 complete. |
+| 5. Background processing | Redis/Celery when needed; local zero-cost mode | `backend/app/workers/celery_app.py` with eager in-process fallback and nightly `enforce-data-retention` beat entry; `cleanup_retention` task in `backend/app/workers/tasks.py`; Compose defines Redis, worker and beat | Stage 8 complete; queue depth/beat observability still requires operator monitoring. |
+| 6. Orchestrator | Job lifecycle, dispatch, normalise, score, persist, return | `AnalysisService.run()` in `backend/app/services/analysis_service.py` handles idempotency, extraction, image/brand/threat/offer engine dispatch, canonical indicator deduplication, timestamped evidence sources, risk scoring, persistence and notification | Stage 5 complete; weights and report fields aligned. |
 | 7A. URL intelligence | Structure, reputation, redirects, homograph, SSRF-safe fetching | `backend/app/intelligence/domain_analysis/analyser.py`, `backend/app/intelligence/url_scanning/safe_fetch.py`; RDAP/DNS/TLS without credentials; optional VirusTotal / Safe Browsing / Web Risk | Add homograph/typosquat heuristics and shortener handling to the passive URL analyser (Stage 4). |
 | 7B. Text/NLP | Fraud language, urgency, payment demands, impersonation | `backend/app/intelligence/message_analysis/analyser.py`, `backend/app/intelligence/rules.py`, `backend/app/ml/` with manifest-gated TF-IDF models and rule fallbacks | Models are English recruitment-text only; label them accurately and avoid generic-offer claims. Add offer-category rules (Stage 3). |
-| 7C. Image/OCR | Screenshot text, phone/URL/email/payment extraction | Document route accepts images but uses text extraction only; no OCR engine | **PLANNED** Stage 4: open-source OCR path with safe image handling. |
-| 7D. Brand/verification | Entity vs official campaign vs impersonation | `backend/app/intelligence/company_verification/verifier.py` with registry intermediary and separate consent gate | **PLANNED** Stage 4: explicit verification states; never infer campaign authorisation from company existence. |
-| 7E. Threat intelligence | Feed import, normalisation, dedupe, expiry, source registry | Optional providers inside domain analysis; no persistent indicator store | **PLANNED** Stage 4: normalised indicator collection, source registry, timestamps, expiry. |
-| 8. Evidence/risk | Hybrid weighted scoring, dedupe, reliability, age, conflicting evidence, explainability | `backend/app/core/risk_engine.py`: six components, renormalisation over available components, evidence boosts, `inconclusive` flag, bands and recommended actions | Align initial weights to 30/25/25/10/10 and extend report schema (Stage 5). |
-| 9. Persistence | 13 entities, indexes, constraints, retention, secure deletion | MongoDB collections with validators/indexes in `backend/app/db/mongo.py`; repositories in `backend/app/db/repositories.py`; **DB name `hireshield` retained deliberately** | Document deviation; add retention enforcement and self-service deletion (Stage 8). |
-| 10. API | Versioned REST endpoints | All product routes under `/api/v1`; health, auth, analysis, reports, community feedback, intelligence, admin, system | Add `/analysis/offer` alias and threat/indicator endpoints (Stages 3–4). |
-| 11. Security | OWASP controls, secure secrets, audit logs | Argon2id, JWT revocation, RBAC, upload validation, SSRF-resistant fetcher, audit logging, security headers, environment-only secrets | Stage 8: scanning, retention, configurable rate limiting, backup drill. |
+| 7C. Image/OCR | Screenshot text, phone/URL/email/payment extraction | `backend/app/intelligence/image/ocr.py`: optional local tesseract path, image validation, capped dimensions, labelled observations; wired into document uploads | Real OCR requires a local `tesseract` binary; otherwise the engine reports `not_configured`. |
+| 7D. Brand/verification | Entity vs official campaign vs impersonation | `backend/app/intelligence/brand_verification/verifier.py` plus consent-gated `CompanyVerifier`; explicit four-state campaign model | No campaign is verified from a logo, screenshot, registry match or advert text alone. |
+| 7E. Threat intelligence | Feed import, normalisation, dedupe, expiry, source registry | `backend/app/intelligence/threat_indicators/store.py` with MongoDB collections, admin source registry, optional SSRF-safe JSON feed refresh and TTL | No feed is configured by default; unmatched lookups are never presented as clean results. |
+| 8. Evidence/risk | Hybrid weighted scoring, dedupe, reliability, age, conflicting evidence, explainability | `backend/app/core/risk_engine.py`: five categories (30/25/25/10/10), renormalisation over available categories, evidence boosts, `inconclusive` flag, configurable bands, `uncertainty` and recommended actions | Stage 5 complete; empty checks remain unavailable rather than clean. |
+| 9. Persistence | 13 entities, indexes, constraints, retention, secure deletion | MongoDB collections with validators/indexes in `backend/app/db/mongo.py`; repositories in `backend/app/db/repositories.py`; `backend/app/services/retention_service.py` purges by configured policy; **DB name `hireshield` retained deliberately** | Stage 8 retention enforcement complete; self-service deletion remains out of scope. |
+| 10. API | Versioned REST endpoints | All product routes under `/api/v1`; health, auth, analysis, reports, community feedback, intelligence, admin, threat-indicator registry, system | Stage 5 structured report fields delivered. |
+| 11. Security | OWASP controls, secure secrets, audit logs | Argon2id, JWT revocation, RBAC, upload validation, SSRF-resistant fetcher, audit logging, security headers, environment-only secrets, tracked-file secret scan, dependency-audit CI | Stage 8 complete; two Python advisories without published fixes and two moderate npm advisories are documented as open risks. |
 | 12. Frontend design | Professional responsive cybersecurity SaaS UI | Existing Tailwind SPA with role-guarded routes, charts, 3D architecture scene, dark/light theme | Rebrand and broaden copy (Stages 2–3). |
 | 13. Zero-cost policy | Free OSS stack, no paid API dependency | Python/FastAPI, MongoDB dev fallback, React/Vite, scikit-learn, optional external keys, no paid LLM | Maintained. Billing exists in the baseline but is optional and webhook-gated. |
 | 14. ML workflow | Real training, honest evaluation, versioning | `backend/app/ml/`, `backend/scripts/train_models.py`, `backend/models/model_manifest.json`; approved job-text models with rejected-model audit trail | Recruitment-text only; document scope, keep rule fallbacks honest (Stage 3). |
-| 15. Community | Reports, duplicates, moderation, weighting | Correction/feedback workflow stored as `pending_review`; notifications and monitoring | **PLANNED** Stage 6: distinct community reports, duplicate detection, reputation weighting, moderation states. |
-| 16. DevOps | Logging, health, request IDs, config separation, backups | Structured logging, `/health` and `/api/v1/health`, request-scoped middleware, Compose, two CI workflows, docs | Stage 8: request IDs on reports, retention job, backup/restore drill. |
+| 15. Community | Reports, duplicates, moderation, weighting | `backend/app/services/community_service.py`: distinct correction/community categories, stable `entity_key`, claim/dedupe/duplicate-group keys, bounded reputation snapshots, audited moderator state machine, corroboration gate; admin review UI in `AdminPage.tsx` | Stage 6 complete: one report never changes risk class; two independent moderator-verified reporters required for a suspicious, non-proof community indicator. |
+| 16. DevOps | Logging, health, request IDs, config separation, backups | `X-Request-ID` + `ctx_*` structured logs, both health endpoints, `scripts/backup_tool.py` backup/verify/restore, config-driven retention, Compose, five CI jobs in `ci.yml`, Dependabot, docs | Stage 8 complete; production TLS/proxy and shared rate limiting remain deployment responsibilities. |
 
 ## 3. Runtime analysis flow (current)
 
@@ -54,25 +54,36 @@ flowchart TD
     EX --> URL["Consent-gated URL/domain engine<br/>SSRF-safe fetch, RDAP/DNS/TLS"]
     EX --> CO["Consent-gated company verification"]
     EX --> AN["Historical/anomaly counts"]
+    EX --> IMG["Optional local OCR<br/>image does not prove authenticity"]
+    EX --> BRAND["Brand/campaign state<br/>entity ≠ official campaign"]
+    EX --> THREAT["Threat-indicator lookup<br/>normalised + deduplicated"]
+    STORE --> COMM["Community reports<br/>dedupe + reputation + moderation"]
+    COMM --> CORR["Two independent verified reporters<br/>only, else no community signal"]
     ML --> RISK["Explainable risk engine<br/>weighted + renormalised"]
     MSG --> RISK
     URL --> RISK
     CO --> RISK
     AN --> RISK
-    RISK --> STORE["MongoDB analysis + risk indicators"]
-    STORE --> REPORT["JSON / PDF report"]
+    IMG --> RISK
+    BRAND --> RISK
+    THREAT --> RISK
+    CORR --> RISK
+    RISK --> STORE["MongoDB analysis + risk indicators + timestamped evidence sources"]
+    STORE --> REPORT["JSON / PDF report with uncertainty and missing information"]
     STORE --> NOTE["In-app notification on high risk"]
 ```
 
-Key behaviour: consent is a hard gate for external lookups; low coverage produces `inconclusive`; every indicator is persisted with its analysis id; failures leave a `failed` analysis record rather than a fabricated result.
+Key behaviour: consent is a hard gate for external lookups; low coverage produces `inconclusive`; every indicator is persisted with its analysis id; failures leave a `failed` analysis record rather than a fabricated result. Community reports are submitted against a stored analysis, deduplicated per reporter/entity/claim and moderated; subsequent analyses consult the corroboration gate, which requires at least two independent moderator-verified reporters before emitting any community indicator. A single report never changes a risk classification.
 
 ## 4. Security boundaries
 
 - **Network egress:** `SafeURLFetcher` validates scheme, host, port and every DNS answer, pins connections to validated public IPs, revalidates redirects, allows text content types only, and caps bytes and time. This is the SSRF/DNS-rebinding boundary for user-submitted URLs.
 - **Uploads:** MIME allowlist, size cap, magic-byte checks and sanitised names in `backend/app/core/security.py` and the analysis route. Uploaded files are never executed.
 - **Untrusted AI input:** no LLM is used for analysis. Deterministic rules and local scikit-learn models consume validated structured fields; structured Pydantic schemas validate outputs. Model instructions are not mixed with submitted content.
-- **Authorisation:** role hierarchy and explicit ownership checks for analyses, reports and monitoring tasks; admin APIs require elevated roles.
-- **Secrets:** environment-only; `public_dict()` masks secrets and `/system/config` exposes capability booleans only.
+- **Authorisation:** role hierarchy and explicit ownership checks for analyses, reports and monitoring tasks; admin APIs require elevated roles. Moderation is admin/owner-only; false-report decisions require a recorded reason; every decision is audited with previous/new state so a single user claim cannot silently reclassify an entity. Reporter reputation is derived from audited outcomes, stored as a snapshot and used only as a weighting input.
+- **Secrets:** environment-only; `public_dict()` masks secrets and `/system/config` exposes capability booleans only. `scripts/secret_scan.py` blocks tracked `.env`/backup files and credential patterns; CI runs it as a blocking check.
+- **Correlation:** every response carries `X-Request-ID`; caller-supplied values must be short opaque tokens, otherwise a server-generated id is used. The id is exposed to allowed CORS clients and written to structured `ctx_*` log fields.
+- **Retention and recovery:** `enforce_retention()` deletes only documents older than their configured policy timestamp, records one audit event per run, and is scheduled by Celery beat and exposed through an admin-only task trigger. Logical backups use checksummed JSONL and restore refuses to run without `--confirm`.
 
 ## 5. Documented deviations from the master specification
 
@@ -81,7 +92,7 @@ Key behaviour: consent is a hard gate for external lookups; low coverage produce
 | SQLAlchemy + SQLite → PostgreSQL | MongoDB via PyMongo with a development-only in-memory fallback | Owner decision: preserve working repositories, validators, indexes and tests. |
 | `TrustLens-AI/` directory layout | Existing flat `backend/`, `frontend/`, `docs/` layout | Owner decision: rebrand and extend in place; no disconnected second codebase. |
 | No billing in specification | Razorpay/Stripe checkout exists in the baseline | Retained as an optional, webhook-gated capability; not part of the verification engine and never a source of truth for legitimacy. |
-| Chrome extension / React Native app | Not implemented | Deferred to Stage 7 per the specification's own web-first sequencing. |
+| Chrome extension / React Native app | MV3 browser extension delivered; React Native remains a documented plan | Stage 7 followed web-first sequencing. The extension is user-triggered with minimal permissions; no mobile code or permission is claimed. |
 | Transformer / PaddleOCR / XGBoost in MVP | scikit-learn TF-IDF models plus rules; OCR XGBoost artifacts exist but are rejected/not active | Evidence-based: rejected models are documented and kept out of the active path; no fake capability claims. |
 
 ## 6. Traceability to stages
@@ -94,5 +105,5 @@ Key behaviour: consent is a hard gate for external lookups; low coverage produce
 | 4 — Engines | `docs/ML.md`, `docs/API.md` | Per-engine unit tests, honest unavailable statuses |
 | 5 — Risk/report | `docs/API.md` | Deterministic risk-engine tests and report-schema assertions |
 | 6 — Community | `docs/API.md` | Moderation and weighting tests |
-| 7 — Extension/mobile | `browser-extension/`, `mobile-app/` | Permission review and user-triggered analysis tests |
-| 8 — Security/DevOps | `docs/SECURITY.md`, `docs/DEPLOYMENT.md` | Full verification commands and results |
+| 7 — Extension/mobile | `browser-extension/`, `mobile-app/` | 6 extension permission/contract tests; mobile policy document |
+| 8 — Security/DevOps | `docs/SECURITY.md`, `docs/RETENTION.md`, `docs/ENVIRONMENTS.md`, `docs/DEPLOYMENT.md` | 111 backend / 29 frontend / 6 extension tests, production build, Compose config, Ruff, compileall, secret scan, pip/npm audits |

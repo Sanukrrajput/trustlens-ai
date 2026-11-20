@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 
 from app.api.deps import enforce_rate_limit, get_current_user, get_repositories, get_services
 from app.core.config import Settings, get_app_settings
@@ -16,6 +16,7 @@ from app.schemas import (
     DocumentAnalysisRequest,
     JobAnalysisRequest,
     MessageAnalysisRequest,
+    OfferAnalysisRequest,
     Paginated,
     TaskStatusOut,
     UrlAnalysisRequest,
@@ -58,6 +59,28 @@ def analyse_job(
         result = _service(settings, repos, services).run(
             str(user["id"]),
             "job",
+            payload.model_dump(),
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=402, detail=str(exc)) from exc
+    return _to_result(result)
+
+
+@router.post("/offer", response_model=AnalysisResult)
+def analyse_offer(
+    payload: OfferAnalysisRequest,
+    request: Request,
+    settings: Settings = Depends(get_app_settings),
+    repos: Repositories = Depends(get_repositories),
+    services: dict[str, Any] = Depends(get_services),
+    user: dict[str, Any] = Depends(get_current_user),
+    _: None = Depends(enforce_rate_limit),
+) -> AnalysisResult:
+    """Verify a generic online offer. `/analysis/job` remains a compatible alias."""
+    try:
+        result = _service(settings, repos, services).run(
+            str(user["id"]),
+            "offer",
             payload.model_dump(),
         )
     except PermissionError as exc:

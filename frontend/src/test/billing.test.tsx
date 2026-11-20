@@ -84,7 +84,7 @@ describe('Razorpay billing checkout', () => {
       checkout_url: null,
       amount: 29900,
       currency: 'INR',
-      name: 'HireShield AI — Professional',
+      name: 'TrustLens AI — Professional',
       description: 'Monthly subscription',
       mode: 'test',
     });

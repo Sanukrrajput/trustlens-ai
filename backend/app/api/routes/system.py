@@ -157,3 +157,9 @@ def trigger_analytics(admin: dict[str, Any] = Depends(require_admin)) -> Trigger
 @router.post("/system/tasks/health-check", response_model=TriggerOut)
 def trigger_health_check(admin: dict[str, Any] = Depends(require_admin)) -> TriggerOut:
     return _trigger("app.workers.tasks.health_check")
+
+
+@router.post("/system/tasks/retention", response_model=TriggerOut)
+def trigger_retention(admin: dict[str, Any] = Depends(require_admin)) -> TriggerOut:
+    """Run the configured retention purge immediately (admin/owner only)."""
+    return _trigger("app.workers.tasks.cleanup_retention")

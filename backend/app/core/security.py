@@ -122,9 +122,18 @@ class SlidingWindowRateLimiter:
         while bucket and bucket[0] <= now - self.window:
             bucket.popleft()
         if len(bucket) >= self.limit:
+            self._prune_empty()
             return False
         bucket.append(now)
+        self._prune_empty()
         return True
+
+    def _prune_empty(self) -> None:
+        # A long-lived worker otherwise accumulates one deque per unique key.
+        if len(self._hits) > 10_000:
+            for key, bucket in list(self._hits.items()):
+                if not bucket:
+                    self._hits.pop(key, None)
 
 
 SAFE_MIME_TO_SUFFIX = {

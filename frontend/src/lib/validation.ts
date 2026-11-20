@@ -65,6 +65,21 @@ export function validateJob(input: {
   return errors;
 }
 
+export function validateOffer(input: {
+  text: string;
+  company_name?: string;
+  source_url?: string;
+}): FieldErrors {
+  const errors: FieldErrors = {};
+  const text = input.text.trim();
+  if (text.length < 20) errors.text = 'Paste at least 20 characters of the offer.';
+  if (text.length > 200_000) errors.text = 'Offer text is too long (200,000 character limit).';
+  if (input.source_url && !/^https?:\/\/\S+\.\S+/.test(input.source_url)) {
+    errors.source_url = 'Enter a valid http(s) URL.';
+  }
+  return errors;
+}
+
 export function validateMessage(input: {
   text: string;
   sender?: string;

@@ -131,7 +131,7 @@ describe('SupportWidget', () => {
     await user.click(screen.getByRole('button', { name: 'Clear chat' }));
 
     expect(
-      await screen.findByText(/I can answer common HireShield questions/),
+      await screen.findByText(/I can answer common TrustLens questions/),
     ).toBeTruthy();
     expect(clearMock).toHaveBeenCalledWith(
       expect.stringMatching(/^[A-Za-z0-9_-]{8,64}$/),

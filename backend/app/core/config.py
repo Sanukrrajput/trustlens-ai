@@ -1,4 +1,4 @@
-"""Environment-driven configuration for HireShield AI.
+"""Environment-driven configuration for TrustLens AI.
 
 Secrets are read only from environment variables / .env files and are never written
 to source control. External integrations are disabled by default when credentials
@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     )
 
     # Core
-    app_name: str = "HireShield AI"
+    app_name: str = "TrustLens AI"
     environment: str = "development"
     log_level: str = "INFO"
     secret_key: str = DEV_SECRET
@@ -39,6 +39,7 @@ class Settings(BaseSettings):
     )
     allowed_hosts: Annotated[list[str], NoDecode] = Field(default_factory=lambda: ["*"])
     rate_limit_per_minute: int = 120
+    rate_limit_window_seconds: int = 60
 
     # Login verification. Turnstile activates only when both keys are supplied;
     # unconfigured deployments report "not_configured" instead of simulating a check.
@@ -67,6 +68,7 @@ class Settings(BaseSettings):
     health_check_interval_minutes: int = 5
     retention_days: int = 365
     audit_retention_days: int = 730
+    retention_enabled: bool = True
 
     # Storage and uploads
     model_dir: str = "./models"
@@ -106,11 +108,11 @@ class Settings(BaseSettings):
     smtp_port: int = 587
     smtp_user: str = ""
     smtp_password: str = ""
-    smtp_from: str = "HireShield AI <no-reply@hireshield.local>"
+    smtp_from: str = "TrustLens AI <no-reply@trustlens.local>"
     smtp_use_tls: bool = True
     sms_provider_url: str = ""
     sms_provider_api_key: str = ""
-    sms_sender_id: str = "HireShield"
+    sms_sender_id: str = "TrustLens"
     notify_email_on_high_risk: bool = True
 
     # Billing. Prices are configurable through the plans collection / admin API.
@@ -121,13 +123,22 @@ class Settings(BaseSettings):
     stripe_webhook_secret: str = ""
     payment_currency: str = "INR"
 
-    # Explainable risk weights (normalised to 1.0 at runtime).
-    risk_weight_ml: float = 0.28
-    risk_weight_rules: float = 0.24
-    risk_weight_domain: float = 0.18
-    risk_weight_company: float = 0.14
-    risk_weight_history: float = 0.10
-    risk_weight_message: float = 0.06
+    # Explainable signal weights (normalised to 1.0 at runtime). These are the
+    # specification's initial split: content 30%, URL/domain 25%, brand/identity
+    # 25%, threat indicators 10% and community/history 10%. Legacy
+    # RISK_WEIGHT_ML/RULES/DOMAIN/COMPANY/HISTORY/MESSAGE variables are no
+    # longer read; use the five names below.
+    risk_weight_content: float = 0.30
+    risk_weight_url: float = 0.25
+    risk_weight_brand: float = 0.25
+    risk_weight_threat: float = 0.10
+    risk_weight_community: float = 0.10
+
+    # Score band upper bounds, configurable without a code change.
+    risk_band_low_max: int = 19
+    risk_band_limited_max: int = 39
+    risk_band_moderate_max: int = 59
+    risk_band_high_max: int = 79
 
     # Default free-plan limits; admin-configurable plans override these.
     free_scan_limit: int = 10
@@ -156,6 +167,20 @@ class Settings(BaseSettings):
             raise ValueError("SECRET_KEY must be set to a strong random value in production")
         if self.monitoring_interval_minutes < 1:
             raise ValueError("MONITORING_INTERVAL_MINUTES must be >= 1")
+        if self.rate_limit_per_minute < 1:
+            raise ValueError("RATE_LIMIT_PER_MINUTE must be >= 1")
+        if self.rate_limit_window_seconds < 1:
+            raise ValueError("RATE_LIMIT_WINDOW_SECONDS must be >= 1")
+        if self.retention_days < 1 or self.audit_retention_days < 1:
+            raise ValueError("RETENTION_DAYS and AUDIT_RETENTION_DAYS must be >= 1")
+        bounds = (
+            self.risk_band_low_max,
+            self.risk_band_limited_max,
+            self.risk_band_moderate_max,
+            self.risk_band_high_max,
+        )
+        if any(not 0 <= value <= 100 for value in bounds) or sorted(bounds) != list(bounds):
+            raise ValueError("Risk score band bounds must be ordered and between 0 and 100")
         if self.environment.lower() in {"production", "prod"} and self.seed_demo_data:
             weak_defaults = {
                 "DemoPass123!",
@@ -175,15 +200,32 @@ class Settings(BaseSettings):
     @property
     def risk_weights(self) -> dict[str, float]:
         raw = {
-            "ml": self.risk_weight_ml,
-            "rules": self.risk_weight_rules,
-            "domain": self.risk_weight_domain,
-            "company": self.risk_weight_company,
-            "history": self.risk_weight_history,
-            "message": self.risk_weight_message,
+            "content": self.risk_weight_content,
+            "url": self.risk_weight_url,
+            "brand": self.risk_weight_brand,
+            "threat": self.risk_weight_threat,
+            "community": self.risk_weight_community,
         }
-        total = sum(max(v, 0.0) for v in raw.values()) or 1.0
-        return {key: max(value, 0.0) / total for key, value in raw.items()}
+        defaults = {
+            "content": 0.30,
+            "url": 0.25,
+            "brand": 0.25,
+            "threat": 0.10,
+            "community": 0.10,
+        }
+        cleaned = {key: max(0.0, value) if value >= 0 else defaults[key] for key, value in raw.items()}
+        total = sum(cleaned.values()) or 1.0
+        return {key: value / total for key, value in cleaned.items()}
+
+    @property
+    def risk_bands(self) -> tuple[int, int, int, int]:
+        """Upper bounds for low, limited, moderate and high risk bands."""
+        return (
+            self.risk_band_low_max,
+            self.risk_band_limited_max,
+            self.risk_band_moderate_max,
+            self.risk_band_high_max,
+        )
 
     def public_dict(self) -> dict[str, Any]:
         """Return non-secret configuration for the admin UI."""

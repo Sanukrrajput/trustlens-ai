@@ -1,4 +1,4 @@
-# HireShield AI — presentation and demo guide
+# TrustLens AI — presentation and demo guide
 
 Use this guide to present the project honestly: what is built, what is actually wired, what is disabled, and what evidence proves it.
 
@@ -6,7 +6,7 @@ For a visual opener, use the live app landing page at <https://hireshield-web-j7
 
 ## 1. One-line pitch
 
-> HireShield AI is an explainable recruitment-fraud decision-support app: FastAPI + MongoDB Atlas + approved scikit-learn text models + a React frontend, deployed as a free Render evaluation stack with a docs-backed support chatbot.
+> TrustLens AI is an explainable recruitment-fraud decision-support app: FastAPI + MongoDB Atlas + approved scikit-learn text models + a React frontend, deployed as a free Render evaluation stack with a docs-backed support chatbot.
 
 Do **not** call it a finished commercial SaaS launch. The current status is **evaluation deployment live; production launch NO-GO**.
 
@@ -16,14 +16,14 @@ Do **not** call it a finished commercial SaaS launch. The current status is **ev
 
 | # | Slide | What to say | What to show |
 | --- | --- | --- | --- |
-| 1 | Title | “HireShield AI — explainable recruitment-fraud decision support.” | Live frontend URL. |
+| 1 | Title | “TrustLens AI — explainable recruitment-fraud decision support.” | Live frontend URL. |
 | 2 | Problem | Fake job posts and recruiter messages mix real signals with pressure tactics. A single score is not enough. | Landing page / scanner screen. |
 | 3 | What it does | Extracts signals, combines approved text models + rules + optional public-source checks, then explains evidence and limitations. | `README.md` → “What it does”. |
 | 4 | Architecture | Browser → Render static site → FastAPI API → MongoDB Atlas; model artifacts loaded from the repo. | Mermaid diagram below. |
 | 5 | Backend | Typed Pydantic APIs, auth/RBAC, rate limit, security headers, health/config endpoints, fail-closed production DB. | `/health`, `/api/v1/system/config`, `docs/API.md`. |
 | 6 | MongoDB | Atlas M0 stores users, analyses, audit logs, plans, reports and support chat logs. Repositories centralise access; validators and TTL indexes exist. | Atlas collections or API proof below. |
 | 7 | ML model | Two approved English job-text models from EMSCAD; three rejected/inactive models; only `approved: true` artifacts load. | `backend/models/model_manifest.json`. |
-| 8 | Frontend + chatbot | React + Tailwind UI; global docs-backed support widget with saved history and clear action. | Open “Ask HireShield”. |
+| 8 | Frontend + chatbot | React + Tailwind UI; global docs-backed support widget with saved history and clear action. | Open “Ask TrustLens”. |
 | 9 | Honest limits | No calibrated probabilities, no live billing/Turnstile/commercial feeds, no workers/cron on free plan, no production launch. | `docs/LAUNCH_READINESS.md`. |
 | 10 | Roadmap | Retention/legal/security/observability/backups, then staged production release. | Launch readiness action list. |
 
@@ -37,7 +37,7 @@ Keep these tabs ready:
 2. API health: <https://hireshield-api-wets.onrender.com/health>
 3. API config: <https://hireshield-api-wets.onrender.com/api/v1/system/config>
 4. GitHub repo: <https://github.com/Sanukrrajput/hireshield-ai>
-5. Atlas cluster UI — open to the `hireshield` database, but **blur/hide the connection string**
+5. Atlas cluster UI — open to the `trustlens` database, but **blur/hide the connection string**
 6. `backend/models/model_manifest.json`
 7. `docs/LAUNCH_READINESS.md`
 
@@ -50,7 +50,7 @@ Show `/health`. Point to:
 - `status: ok`
 - `environment: production`
 - `database.database: connected`
-- `database.name: hireshield`
+- `database.name: trustlens`
 - `in_memory_fallback: false`
 
 Then show `/api/v1/system/config` and say:
@@ -76,7 +76,7 @@ Walk through:
 
 ### Step C — show MongoDB persistence
 
-Best option: in Atlas, open `hireshield` → Collections → `support_messages` or `fraud_analyses` and point at the newest document. Explain the fields without exposing secrets.
+Best option: in Atlas, open `trustlens` → Collections → `support_messages` or `fraud_analyses` and point at the newest document. Explain the fields without exposing secrets.
 
 If you do not want to show Atlas, prove it through the API:
 
@@ -100,7 +100,7 @@ Point out:
 
 ### Step D — show the support chatbot
 
-1. Click **Ask HireShield** at the bottom-left.
+1. Click **Ask TrustLens** at the bottom-left.
 2. Ask: “How is the risk score calculated?”
 3. Show the grounded badge and source labels.
 4. Ask: “What is the weather in Delhi?”
@@ -153,7 +153,7 @@ flowchart LR
     U[User browser] --> W[React + TypeScript + Tailwind\nRender static site]
     W -->|VITE_API_URL /api/v1| A[FastAPI API\nRender free Docker web service]
     A --> R[Repositories + validators]
-    R --> M[(MongoDB Atlas M0\nhireshield database)]
+    R --> M[(MongoDB Atlas M0\ntrustlens database)]
     A --> ML[Approved scikit-learn artifacts\nTF-IDF + LogReg / LinearSVC]
     A --> S[Curated FAQ matcher]
     S --> M
@@ -171,7 +171,7 @@ flowchart LR
 | API | FastAPI, Pydantic, Uvicorn, Argon2 passwords, JWT access/refresh | `backend/app/main.py`, `backend/app/api/`, `backend/app/core/security.py` |
 | Database | MongoDB Atlas M0, PyMongo, repository layer, validators, indexes, 30-day chat TTL | `backend/app/db/mongo.py`, `backend/app/db/repositories.py` |
 | ML | scikit-learn TF-IDF + LogisticRegression + LinearSVC; manifest-gated loading | `backend/models/model_manifest.json`, `backend/app/ml/` |
-| Rules | Explainable weighted risk components (ML, rules, domain, company, history, message) | `backend/app/core/risk_engine.py` |
+| Rules | Explainable weighted signal categories (content, URL, brand, threat, community) | `backend/app/core/risk_engine.py` |
 | Frontend | React 18, TypeScript, Vite 5, Tailwind CSS 3, lucide-react | `frontend/src/` |
 | Support | Docs-backed FAQ matcher, MongoDB session logs, clear endpoint | `backend/app/support/faq.py`, `frontend/src/components/SupportWidget.tsx` |
 | Public checks | RDAP, DNS, TLS; no key required | `backend/app/intelligence/` and `/api/v1/system/config` |

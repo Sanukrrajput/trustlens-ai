@@ -1,4 +1,4 @@
-"""Explainable, evidence-first intelligence helpers for HireShield AI.
+"""Explainable, evidence-first intelligence helpers for TrustLens AI.
 
 Nothing in this package decides that a person or company is fraudulent. Every
 finding is an *indicator* with a source, an observation time, a confidence and
@@ -194,8 +194,14 @@ def make_indicator(
     independently_verified: bool = False,
     expires_at: str | None = None,
     weight: float = 1.0,
+    signal_category: str = "content",
 ) -> dict[str, Any]:
-    """Build an EvidenceIndicator-shaped dict with valid, bounded fields."""
+    """Build an EvidenceIndicator-shaped dict with valid, bounded fields.
+
+    ``signal_category`` is the risk-engine bucket (content, url, brand, threat or
+    community). It is metadata for explainability and deterministic scoring; it
+    never changes the underlying observation.
+    """
     if status not in EVIDENCE_STATUSES:
         status = "unverified"
     return {
@@ -210,6 +216,7 @@ def make_indicator(
         "independently_verified": bool(independently_verified),
         "expires_at": expires_at,
         "weight": round(clamp(weight, 0.0, 2.0), 3),
+        "signal_category": signal_category if signal_category in {"content", "url", "brand", "threat", "community", "coverage"} else "content",
     }
 
 

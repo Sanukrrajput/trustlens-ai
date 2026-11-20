@@ -186,7 +186,7 @@ export function LandingPage() {
               <span className="bg-gradient-to-r from-brand-500 to-cyan-400 bg-clip-text text-transparent">Detect Before You Trust.</span>
             </h1>
             <p className="mt-6 max-w-xl text-base leading-relaxed text-muted sm:text-lg">
-              HireShield AI turns job posts, recruiter messages, URLs and documents into an explainable risk assessment — with sources, confidence and limitations attached to every finding.
+              TrustLens AI turns job posts, recruiter messages, URLs and documents into an explainable risk assessment — with sources, confidence and limitations attached to every finding.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link to="/register" className="btn-primary px-6 py-3 text-base">Start a free investigation <ArrowRight className="h-4 w-4" /></Link>

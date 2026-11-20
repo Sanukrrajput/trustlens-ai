@@ -1,4 +1,4 @@
-# HireShield AI — Testing Guide
+# TrustLens AI — Testing Guide
 
 This document describes the automated tests and smoke checks that exist in this repository. Commands below are reproducible from the repository root unless a section says otherwise. No running MongoDB, Redis, external API credentials, or deployed environment is required for the automated suites.
 
@@ -8,11 +8,18 @@ This document describes the automated tests and smoke checks that exist in this 
 
 | File | Test functions | Coverage |
 | --- | ---: | --- |
-| `test_api.py` | 20 | End-to-end API flows with `TestClient`, `mongomock://`, Celery disabled/eager, development demo seeding, Razorpay order creation and signed webhook transitions. |
-| `test_ml.py` | 17 | Dataset preparation, feature construction, evaluation metrics, inference fallback/approval, risk scoring, and training gates. |
-| `test_intelligence.py` | 27 (one parametrized over 11 URLs) | Explainable intelligence, SSRF defences, safe fetching, consent gating, evidence rules, and limited-mode behavior. |
+| `test_api.py` | 24 | End-to-end API flows with `TestClient`, `mongomock://`, Celery disabled/eager, development demo seeding, Razorpay order creation and signed webhook transitions, offer analysis and Stage 4 engine fields. |
+| `test_ml.py` | 20 | Dataset preparation, feature construction, evaluation metrics, inference fallback/approval, risk scoring, and training gates. |
+| `test_intelligence.py` | 30 (one parametrized over 11 URLs) | Explainable intelligence, SSRF defences, safe fetching, consent gating, evidence rules, offer rules and limited-mode behavior. |
+| `test_image_ocr.py` | 5 | Invalid images, unavailable local OCR, non-image MIME, labelled OCR observations, and `DocumentParser` delegation. |
+| `test_brand_and_threat.py` | 11 | Brand/campaign states, independent-evidence gating, impersonation heuristics, threat-value normalisation, dedupe/expiry/matching and SSRF-safe source registration. |
+| `test_community.py` | 4 | Correction/community distinction, duplicates, ownership, single-report non-reclassification, moderation, reputation and RBAC. |
+| `test_hardening.py` | 6 | Configurable rate limits/`Retry-After`, invalid operational config, request IDs, retention purge, backup/verify/restore round trip and secret-scan guard. |
+| `test_threat_api.py` | 2 | Admin-only source registry, unsafe feed rejection and direct indicator import/list. |
+| `test_support.py` | 7 | Grounded support answers, honest fallback, logging and validation. |
+| `test_trusted_host.py` | 2 | TrustedHost middleware behaviour. |
 
-`pytest` collects **64 test cases** in total.
+`pytest` collects **111 test cases** in total.
 
 Backend tests do not need local MongoDB or Redis:
 
@@ -26,12 +33,14 @@ Backend tests do not need local MongoDB or Redis:
 | --- | ---: | --- |
 | `validation.test.ts` | 6 | Form validation rules for registration, passwords, login, job/message/URL/company inputs, monitoring targets, and feedback details. |
 | `auth.test.tsx` | 8 | Login validation, explicit User/Admin selector, secure admin/user routing, role-mismatch rejection, registration consent enforcement, remembered email/previous sign-in display, and Turnstile token/device options; `authApi` is mocked. |
-| `analysis.test.tsx` | 4 | Short-text blocking, job submission with consent and report navigation, URL validation, and immediate-result pass-through; `analysisApi` is mocked. |
+| `analysis.test.tsx` | 6 | Short-text blocking, job submission with consent and report navigation, URL validation, generic offer submission with category, and immediate-result pass-through; `analysisApi` is mocked. |
 | `admin.test.tsx` | 2 | Admin account provisioning form success state, exact payload, callback/refresh behaviour, and honest display of server rejection; `adminApi` is mocked. |
 | `razorpay.test.ts` | 2 | Checkout script wrapper opens the server-created order, resolves the payment response, and rejects on dismissal; the Razorpay constructor is faked. |
 | `billing.test.tsx` | 1 | Billing page opens Razorpay with the server order and does not claim paid access before the signed webhook; APIs and checkout are mocked. |
 
-Vitest collects **23 tests across 6 files**. The frontend tests use `jsdom`, Testing Library, and mocked API modules; they do not exercise a live backend.
+| `support.test.tsx` | 4 | Grounded answers, honest fallback, session logging and clearing; APIs are mocked. |
+
+Vitest collects **29 tests across 7 files**. The frontend tests use `jsdom`, Testing Library, and mocked API modules; they do not exercise a live backend.
 
 ## Install test dependencies
 
@@ -65,7 +74,7 @@ cd ..
 
 ### Backend
 
-Windows (PowerShell) — verified result: **64 passed**:
+Windows (PowerShell) — verified result: **111 passed**:
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest backend/tests -q --tb=line
@@ -81,12 +90,14 @@ Compile check used by CI:
 
 ```powershell
 # Windows
-.\.venv\Scripts\python.exe -m compileall -q backend\app backend\scripts
+.\.venv\Scripts\python.exe -m compileall -q backend\app backend\scripts backend\tests scripts
+.\.venv\Scripts\python.exe -m ruff check backend\app backend\tests backend\scripts scripts
 ```
 
 ```bash
 # Linux / macOS
-.venv/bin/python -m compileall -q backend/app backend/scripts
+.venv/bin/python -m compileall -q backend/app backend/scripts backend/tests scripts
+.venv/bin/python -m ruff check backend/app backend/tests backend/scripts scripts
 ```
 
 To run a single backend suite:
@@ -96,6 +107,11 @@ To run a single backend suite:
 .\.venv\Scripts\python.exe -m pytest backend/tests/test_api.py -q --tb=short
 .\.venv\Scripts\python.exe -m pytest backend/tests/test_ml.py -q --tb=short
 .\.venv\Scripts\python.exe -m pytest backend/tests/test_intelligence.py -q --tb=short
+.\.venv\Scripts\python.exe -m pytest backend/tests/test_image_ocr.py -q --tb=short
+.\.venv\Scripts\python.exe -m pytest backend/tests/test_brand_and_threat.py -q --tb=short
+.\.venv\Scripts\python.exe -m pytest backend/tests/test_community.py -q --tb=short
+.\.venv\Scripts\python.exe -m pytest backend/tests/test_hardening.py -q --tb=short
+.\.venv\Scripts\python.exe -m pytest backend/tests/test_threat_api.py -q --tb=short
 ```
 
 ```bash
@@ -103,11 +119,13 @@ To run a single backend suite:
 .venv/bin/python -m pytest backend/tests/test_api.py -q --tb=short
 .venv/bin/python -m pytest backend/tests/test_ml.py -q --tb=short
 .venv/bin/python -m pytest backend/tests/test_intelligence.py -q --tb=short
+.venv/bin/python -m pytest backend/tests/test_community.py -q --tb=short
+.venv/bin/python -m pytest backend/tests/test_hardening.py -q --tb=short
 ```
 
 ### Frontend
 
-Windows (PowerShell) — verified result: **6 files passed, 23 tests passed**:
+Windows (PowerShell) — verified result: **7 files passed, 29 tests passed**:
 
 ```powershell
 cd frontend
@@ -137,6 +155,33 @@ npm run build
 
 `npm run build` runs `tsc --noEmit && vite build`. `--run` is required for a one-shot Vitest run; plain `npm run test` starts watch mode.
 
+### Browser extension
+
+Verified result: **6 tests passed**.
+
+```powershell
+cd browser-extension
+npm test
+```
+
+The Node test runner checks the exact MV3 permission set, absence of background/automatic hooks, explicit-click wiring, self-contained extraction, bounded untrusted text and honest failure when a page is unavailable. It is a contract test, not a browser-integration test.
+
+### Security and dependency checks
+
+```powershell
+# From the repository root
+.\.venv\Scripts\python.exe -m ruff check backend\app backend\tests backend\scripts scripts
+.\.venv\Scripts\python.exe scripts/secret_scan.py
+.\.venv\Scripts\python.exe -m pip check
+.\.venv\Scripts\python.exe -m pip_audit --requirement backend\requirements.txt --format json
+
+cd frontend
+npm ls --omit=dev
+npm audit --omit=dev --audit-level=high --json
+```
+
+Verified results: Ruff **passed**; secret scan `status: ok` over **269** tracked files with no findings; `pip check` and `npm ls --omit=dev` found consistent trees. `npm audit` exited 0 with 0 high/critical and 2 moderate React Router advisories. `pip-audit` exited 1 with 3 findings in `python-jose`/`ecdsa` and no published fixes; CI uploads the JSON as an artifact rather than hiding it. Details and mitigations are in [SECURITY.md](SECURITY.md).
+
 ### Container configuration checks
 
 These mirror the CI `containers` job and work on all platforms with Docker Compose v2:
@@ -158,6 +203,7 @@ Runs the FastAPI app through `TestClient` against an isolated in-memory database
 - **Health, public config, headers**: `/health` and `/api/v1/health`; public config does not leak `secret_key`; security headers such as `X-Content-Type-Options` and `X-Frame-Options` are present.
 - **Auth lifecycle**: register, login, `GET /auth/me`, refresh, logout, and rejection of the logged-out access token.
 - **Job analysis flow**: submit a fraudulent-sample job without external consent, verify bounded risk score and weights version, list/get persistence, generate a report and PDF (`%PDF` prefix), and submit false-positive feedback with `pending_review` status.
+- **Structured report fields**: every completed analysis carries `signal_weights`, `unavailable_signals`, `uncertainty`, timestamped `evidence_sources`, `evidence_collected_at`, missing information, limitations and recommended actions; the PDF renders these sections without calibrated-probability language.
 - **Message and URL analysis**: message submission with `channel=whatsapp` and URL submission without consent; risk remains bounded and can be inconclusive.
 - **Billing**: plan listing, free subscription state, and `503 not configured` when checkout is attempted with Razorpay keys explicitly cleared by the test (so a developer's local `.env` cannot make this assertion flaky).
 - **Razorpay checkout and webhook security**: with mocked provider HTTP, checkout sends the plan amount, currency and server-created `notes`; unsigned webhooks are rejected; a correctly HMAC-signed `payment.captured` event using order notes activates the paid plan; an amount-mismatched event is recorded without changing entitlement. All signing secrets are patched within the tests, not read from the local `.env`.
@@ -171,7 +217,7 @@ Runs the FastAPI app through `TestClient` against an isolated in-memory database
 - **Features**: bounded, canonical anomaly vectors with alias handling and non-finite value sanitisation; text normalisation replaces URLs with a token.
 - **Metrics**: confusion matrix, precision/recall/F1/FPR/FNR/accuracy/ROC-AUC/PR-AUC on known values, degenerate single-class handling, FNR-focused threshold selection, and anomaly metric orientation.
 - **Inference**: prediction contract validation, honest rule-based fallback when artifacts are missing, short-text inconclusive results, and manifest loading that honours approval status.
-- **Risk engine**: category boundaries, inconclusive/no-evidence output, verified evidence weighted above unverified evidence, model confidence not reused as the risk score, and actionable high-risk guidance.
+- **Risk engine**: category boundaries, inconclusive/no-evidence output, verified evidence weighted above unverified evidence, model confidence not reused as the risk score, 30/25/25/10/10 weights with availability renormalisation, configurable bands, empty threat lookups never treated as clean, and actionable high-risk guidance.
 - **Training gates**: approval rejects a flag-everything model (precision/FPR), and the synthetic fallback path produces no approved models and falls back to rule-based inference.
 
 ### `backend/tests/test_intelligence.py`
@@ -184,15 +230,37 @@ Runs the FastAPI app through `TestClient` against an isolated in-memory database
 - **Company verification**: no external lookup without consent; with consent, website evidence yields a partial result while registry limitations remain explicit.
 - **Anomaly engine**: limited status, unavailable historical counts, and unavailable model when repositories are absent.
 
+### `backend/tests/test_image_ocr.py`
+
+- Invalid image bytes produce `invalid_image` with a technical-limitation indicator and no fabricated text.
+- Missing `tesseract` produces `not_configured`; no OCR module is called when unavailable.
+- Non-image MIME is `not_attempted`.
+- A stubbed OCR backend demonstrates phone/email/URL/payment/credential observations and carries the "image never proves authenticity" caveat.
+- `DocumentParser` delegates image uploads to the engine instead of attempting inline OCR.
+
+### `backend/tests/test_brand_and_threat.py`
+
+- Brand states: no claim → `not_attempted`; registry only → `verified_company`; independent campaign evidence → `verified_official_campaign`; user-supplied adverts cannot verify a campaign.
+- Impersonation suspicion is produced only from lookalike/threat indicators and is never `confirmed_malicious`.
+- Threat values are normalised by type; ingestion deduplicates by `(source, kind, normalised value)`, honours expiry, and reports `no_match` without claiming legitimacy.
+- Unavailable feeds report `not_configured`; private feed URLs are rejected before any network call.
+
+### `backend/tests/test_threat_api.py`
+
+- Non-admin users receive **403** from the threat source registry.
+- Seeded admin can list sources, reject an unsafe private feed URL with **400**, import structured indicators and list them.
+
 ## CI mapping
 
 | CI job (`ci.yml`) | Local equivalent |
 | --- | --- |
-| Backend: compile source | `.\.venv\Scripts\python.exe -m compileall -q backend\app backend\scripts` (Windows) / `.venv/bin/python -m compileall -q backend/app backend/scripts` (Linux/macOS) |
+| Backend: pip check + compile | `python -m pip check`, then `compileall -q backend/app backend/scripts backend/tests scripts` |
 | Backend: run tests | `.\.venv\Scripts\python.exe -m pytest backend/tests -q --tb=line` / `.venv/bin/python -m pytest backend/tests -q --tb=line` |
 | Backend: training smoke | See below; CI writes to `${runner.temp}/hireshield-model-smoke` with `--log-level WARNING` |
-| Frontend: `npm ci`, `npm run build` | `cd frontend && npm ci && npm run build` |
+| Frontend: `npm ci`, `npm run build` | `cd frontend && npm ci && npm ls --omit=dev && npm run build` |
 | Frontend: `npm run test -- --run` | `cd frontend && npm run test -- --run` |
+| Browser extension | `cd browser-extension && npm test` |
+| Security | `python scripts/secret_scan.py`, plus report-only `pip-audit` and `npm audit` artifact uploads |
 | Containers: config + builds | `docker compose config --quiet`, then the two `docker build` commands above |
 
 CI triggers on every branch push, pull requests, and manual dispatch. It performs no deployment. `container-release.yml` is separate: it publishes API and frontend images to GHCR on `main`, `v*` tags, or manual dispatch; rollout is an explicit server-side step described in [DEPLOYMENT.md](./DEPLOYMENT.md).

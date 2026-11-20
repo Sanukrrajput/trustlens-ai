@@ -2,7 +2,7 @@
 
 PROVENANCE AND HONESTY NOTICE
 -----------------------------
-Every example below was authored by the HireShield AI engineering team for the
+Every example below was authored by the TrustLens AI engineering team for the
 sole purposes of (a) training a baseline recruitment-message classifier when no
 real labelled message corpus is available, (b) exercising inference fallbacks,
 and (c) documenting ambiguous and incomplete cases that a production system

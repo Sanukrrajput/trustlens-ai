@@ -2,16 +2,24 @@
 
 from __future__ import annotations
 
+import logging
+from functools import lru_cache
 from typing import Any
 
-from fastapi import Depends, Header, HTTPException, Request, status
+from fastapi import Depends, Header, HTTPException, Request
 
 from app.core.config import Settings, get_settings
 from app.core.security import SlidingWindowRateLimiter, decode_token, role_allowed
-from app.db.repositories import Repositories, as_id, public
+from app.db.repositories import Repositories, public
 
-_rate_limiter = SlidingWindowRateLimiter(limit=120)
+logger = logging.getLogger(__name__)
 _bearer_scheme = "bearer"
+
+
+@lru_cache(maxsize=16)
+def _limiter_for(limit: int, window_seconds: int) -> SlidingWindowRateLimiter:
+    """One in-process limiter per configured policy, not a fixed hard-coded 120."""
+    return SlidingWindowRateLimiter(limit=limit, window_seconds=window_seconds)
 
 
 def get_app_settings() -> Settings:
@@ -30,9 +38,30 @@ def get_services(request: Request) -> dict[str, Any]:
 
 
 def enforce_rate_limit(request: Request, settings: Settings = Depends(get_app_settings)) -> None:
+    """Apply the configured per-client/per-path window to abuse-prone routes.
+
+    The limit and window come from settings so deployments can tune them without
+    a code change. This remains a single-process control; a shared Redis limiter
+    is still required for multi-worker production deployments.
+    """
+    limit = max(1, int(settings.rate_limit_per_minute))
+    window = max(1, int(settings.rate_limit_window_seconds))
     client = request.client.host if request.client else "unknown"
-    if not _rate_limiter.allow(f"{client}:{request.url.path}"):
-        raise HTTPException(status_code=429, detail="rate limit exceeded")
+    key = f"{client}:{request.url.path}"
+    if not _limiter_for(limit, window).allow(key):
+        logger.warning(
+            "rate limit exceeded path=%s client=%s limit=%s window=%s",
+            request.url.path,
+            client,
+            limit,
+            window,
+            extra={"ctx_request_id": getattr(request.state, "request_id", "")},
+        )
+        raise HTTPException(
+            status_code=429,
+            detail="rate limit exceeded",
+            headers={"Retry-After": str(window)},
+        )
 
 
 def _extract_bearer(authorization: str | None) -> str:

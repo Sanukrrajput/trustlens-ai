@@ -1,6 +1,7 @@
 import type {
   AdminDashboard,
   AdminUserCreate,
+  CommunityReportCreate,
   AnalysisListItem,
   AnalysisResult,
   ApiErrorShape,
@@ -25,18 +26,19 @@ import type {
   TaskStatusOut,
   TokenPair,
   User,
+  ReportReviewUpdate,
   UserReportCreate,
   UserReportOut,
 } from '../types';
 
 export const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) || '/api/v1';
 
-const ACCESS_KEY = 'hireshield.access_token';
-const REFRESH_KEY = 'hireshield.refresh_token';
-const USER_KEY = 'hireshield.user';
-const DEVICE_KEY = 'hireshield.device_id';
-const REMEMBERED_KEY = 'hireshield.remembered_signin';
-export const UNAUTHORIZED_EVENT = 'hireshield:unauthorized';
+const ACCESS_KEY = 'trustlens.access_token';
+const REFRESH_KEY = 'trustlens.refresh_token';
+const USER_KEY = 'trustlens.user';
+const DEVICE_KEY = 'trustlens.device_id';
+const REMEMBERED_KEY = 'trustlens.remembered_signin';
+export const UNAUTHORIZED_EVENT = 'trustlens:unauthorized';
 
 export interface RememberedSignin {
   email: string;
@@ -300,6 +302,7 @@ export const authApi = {
 
 export const analysisApi = {
   submitJob: (body: Record<string, unknown>) => api<AnalysisResult | TaskStatusOut>('/analysis/job', { method: 'POST', body }),
+  submitOffer: (body: Record<string, unknown>) => api<AnalysisResult | TaskStatusOut>('/analysis/offer', { method: 'POST', body }),
   submitMessage: (body: Record<string, unknown>) => api<AnalysisResult | TaskStatusOut>('/analysis/message', { method: 'POST', body }),
   submitUrl: (body: Record<string, unknown>) => api<AnalysisResult | TaskStatusOut>('/analysis/url', { method: 'POST', body }),
   submitDocument: (file: File, consentExternalLookups: boolean) => {
@@ -341,6 +344,7 @@ export const reportsApi = {
     return response.blob();
   },
   feedback: (body: UserReportCreate) => api<UserReportOut>('/reports/feedback', { method: 'POST', body }),
+  community: (body: CommunityReportCreate) => api<UserReportOut>('/reports/community', { method: 'POST', body }),
 };
 
 export const notificationsApi = {
@@ -358,6 +362,8 @@ export const adminApi = {
   dashboard: () => api<AdminDashboard>('/admin/dashboard'),
   models: () => api<unknown>('/admin/models'),
   reports: () => api<unknown>('/admin/reports'),
+  reviewReport: (id: string, body: ReportReviewUpdate) =>
+    api<UserReportOut>(`/admin/reports/${encodeURIComponent(id)}`, { method: 'PATCH', body }),
   users: () => api<unknown>('/admin/users'),
   createUser: (body: AdminUserCreate) =>
     api<User>('/admin/users', { method: 'POST', body }),

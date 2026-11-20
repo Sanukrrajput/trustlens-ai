@@ -6,7 +6,7 @@
  * subscription.
  */
 
-const SCRIPT_ID = 'hireshield-razorpay-checkout';
+const SCRIPT_ID = 'trustlens-razorpay-checkout';
 const SCRIPT_URL = 'https://checkout.razorpay.com/v1/checkout.js';
 
 export interface RazorpayPaymentResponse {

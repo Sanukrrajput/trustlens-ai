@@ -63,8 +63,8 @@ def generate_analysis_pdf(analysis: dict[str, Any]) -> bytes:
         rightMargin=16 * mm,
         topMargin=16 * mm,
         bottomMargin=16 * mm,
-        title="HireShield AI Investigation Report",
-        author="HireShield AI",
+        title="TrustLens AI Investigation Report",
+        author="TrustLens AI",
     )
     styles = getSampleStyleSheet()
     h1 = ParagraphStyle("H1", parent=styles["Heading1"], fontSize=18, textColor=colors.HexColor("#0F172A"))
@@ -74,7 +74,7 @@ def generate_analysis_pdf(analysis: dict[str, Any]) -> bytes:
 
     risk = analysis.get("risk") or {}
     story: list[Any] = [
-        Paragraph("HireShield AI Investigation Report", h1),
+        Paragraph("TrustLens AI Investigation Report", h1),
         Paragraph(
             f"Report ID: {_clean(analysis.get('id'))} | Generated: {datetime.now(timezone.utc).isoformat()}",
             small,
@@ -101,6 +101,56 @@ def generate_analysis_pdf(analysis: dict[str, Any]) -> bytes:
     )
     story.append(Spacer(1, 6))
     story.append(Paragraph(_clean(risk.get("summary")), body))
+
+    uncertainty = risk.get("uncertainty")
+    if uncertainty is None:
+        uncertainty = 1.0 - float(risk.get("confidence", 0.0))
+    story.append(
+        _table(
+            [
+                ["Assessment confidence", "Evidence uncertainty", "Unavailable signal categories"],
+                [
+                    f"{float(risk.get('confidence', 0)) * 100:.0f}%",
+                    f"{float(uncertainty) * 100:.0f}%",
+                    _clean(", ".join(risk.get("unavailable_signals") or []) or "none", 120),
+                ],
+            ],
+            [45 * mm, 45 * mm, 88 * mm],
+        )
+    )
+    story.append(Spacer(1, 6))
+
+    signal_weights = risk.get("signal_weights") or {}
+    component_scores = risk.get("component_scores") or {}
+    if signal_weights:
+        story.append(Paragraph("Signal categories and weights", h2))
+        rows = [["Category", "Weight", "Observed component score"]]
+        for name, weight in signal_weights.items():
+            rows.append(
+                [
+                    _clean(name.replace("_", " ").title(), 40),
+                    f"{float(weight) * 100:.0f}%",
+                    f"{float(component_scores.get(name, 0)) * 100:.0f}%",
+                ]
+            )
+        rows.append(["Weights version", _clean(risk.get("weights_version"), 60), ""])
+        story.append(_table(rows, [55 * mm, 35 * mm, 88 * mm]))
+
+    evidence_sources = analysis.get("evidence_sources") or []
+    if evidence_sources:
+        story.append(Paragraph("Evidence sources and timestamps", h2))
+        rows = [["Source", "Status", "Attempted", "Observed", "Detail"]]
+        for source in evidence_sources[:20]:
+            rows.append(
+                [
+                    _clean(source.get("name"), 40),
+                    _clean(source.get("status"), 30),
+                    _clean(source.get("attempted_at"), 30),
+                    _clean(source.get("observed_at"), 30),
+                    _clean(source.get("detail"), 120),
+                ]
+            )
+        story.append(_table(rows, [32 * mm, 24 * mm, 32 * mm, 32 * mm, 58 * mm]))
 
     if risk.get("evidence_summary"):
         story.append(Paragraph("Evidence summary", h2))
@@ -136,7 +186,7 @@ def generate_analysis_pdf(analysis: dict[str, Any]) -> bytes:
     predictions = analysis.get("model_predictions") or []
     if predictions:
         story.append(Paragraph("Model assessments", h2))
-        rows = [["Model", "Version", "Result", "Fraud probability"]]
+        rows = [["Model", "Version", "Result", "Uncalibrated risk score"]]
         for pred in predictions:
             rows.append(
                 [
@@ -151,6 +201,9 @@ def generate_analysis_pdf(analysis: dict[str, Any]) -> bytes:
     for title, key in [
         ("Domain investigation", "domain_intelligence"),
         ("Company intelligence", "company_intelligence"),
+        ("Brand and campaign verification", "brand_intelligence"),
+        ("Threat-indicator check", "threat_intelligence"),
+        ("Image/OCR analysis", "image_intelligence"),
         ("Message analysis", "message_intelligence"),
         ("Historical patterns", "historical_intelligence"),
     ]:
@@ -167,7 +220,7 @@ def generate_analysis_pdf(analysis: dict[str, Any]) -> bytes:
             if len(rows) > 1:
                 story.append(_table(rows, [42 * mm, 136 * mm]))
 
-    story.append(Paragraph("Missing evidence", h2))
+    story.append(Paragraph("Missing information / evidence", h2))
     for item in (analysis.get("missing_evidence") or [])[:12]:
         story.append(Paragraph(f"&bull; {_clean(item)}", body))
 
@@ -183,8 +236,9 @@ def generate_analysis_pdf(analysis: dict[str, Any]) -> bytes:
     story.append(
         KeepTogether(
             Paragraph(
-                "Important: a low risk score does not prove a job, recruiter or company is genuine. "
-                "This report is an evidence-based screening aid, not a legal determination or an accusation.",
+                "Important: a low risk score does not prove an offer, advert, recruiter, brand or company is genuine. "
+                "This report is an evidence-based screening aid, not a calibrated fraud probability, a legal "
+                "determination or an accusation.",
                 small,
             )
         )

@@ -25,7 +25,7 @@ import { useApi } from '../hooks/useApi';
 import { analysisApi, reportsApi } from '../lib/api';
 import { downloadBlob, errorText, formatDateTime, pct, titleCase } from '../lib/utils';
 import { validateFeedback } from '../lib/validation';
-import type { AnalysisResult } from '../types';
+import type { AnalysisResult, CommunityClaimType, UserReportOut } from '../types';
 
 function ValueBlock({ label, value }: { label: string; value: ReactNode }) {
   return (
@@ -82,6 +82,10 @@ export function ReportPage() {
   const [feedbackErrors, setFeedbackErrors] = useState<Record<string, string>>({});
   const [sending, setSending] = useState(false);
   const [feedbackSent, setFeedbackSent] = useState(false);
+  const [community, setCommunity] = useState({ claim_type: 'missed_fraud' as CommunityClaimType, details: '', evidence_url: '' });
+  const [communityErrors, setCommunityErrors] = useState<Record<string, string>>({});
+  const [sendingCommunity, setSendingCommunity] = useState(false);
+  const [communityReceipt, setCommunityReceipt] = useState<UserReportOut | null>(null);
 
   if (loading) return <Spinner label="Loading investigation report…" className="min-h-[60vh]" />;
   if (error) return <ErrorState message={error} onRetry={() => void refetch()} />;
@@ -96,12 +100,40 @@ export function ReportPage() {
     setDownloading(true);
     try {
       const blob = await reportsApi.pdf(result.report_id ?? result.id);
-      downloadBlob(blob, `hireshield-report-${result.id}.pdf`);
+      downloadBlob(blob, `trustlens-report-${result.id}.pdf`);
       notify('PDF report downloaded.', 'success');
     } catch (error) {
       notify(errorText(error), 'error');
     } finally {
       setDownloading(false);
+    }
+  };
+
+  const submitCommunity = async (event: FormEvent) => {
+    event.preventDefault();
+    const found = validateFeedback(community);
+    setCommunityErrors(found);
+    if (Object.keys(found).length) return;
+    setSendingCommunity(true);
+    try {
+      const receipt = await reportsApi.community({
+        analysis_id: result.id,
+        claim_type: community.claim_type,
+        details: community.details.trim(),
+        evidence_url: community.evidence_url.trim() || undefined,
+      });
+      setCommunityReceipt(receipt);
+      setCommunity({ claim_type: 'missed_fraud', details: '', evidence_url: '' });
+      notify(
+        receipt.duplicate
+          ? 'This report was already recorded; no duplicate was created.'
+          : 'Community report submitted for moderation. One report alone never changes an entity risk class.',
+        'success',
+      );
+    } catch (error) {
+      notify(errorText(error), 'error');
+    } finally {
+      setSendingCommunity(false);
     }
   };
 
@@ -175,8 +207,25 @@ export function ReportPage() {
                 <ProgressBar value={risk.confidence * 100} className="mt-1.5" />
               </div>
               <div>
+                <div className="flex items-center justify-between text-xs text-muted"><span>Evidence uncertainty</span><span>{pct(risk.uncertainty ?? 1 - risk.confidence)}</span></div>
+                <ProgressBar value={(risk.uncertainty ?? 1 - risk.confidence) * 100} tone="warn" className="mt-1.5" />
+              </div>
+              <div>
                 <div className="flex items-center justify-between text-xs text-muted"><span>Data coverage</span><span>{pct(risk.data_coverage)}</span></div>
                 <ProgressBar value={risk.data_coverage * 100} tone={risk.data_coverage < 0.4 ? 'warn' : 'brand'} className="mt-1.5" />
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-muted">Signal weights</p>
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {Object.entries(risk.signal_weights ?? {}).map(([name, weight]) => (
+                    <span key={name} className="chip text-[11px]">{titleCase(name)} {pct(weight)}</span>
+                  ))}
+                </div>
+                {!!risk.unavailable_signals?.length && (
+                  <p className="mt-2 text-[11px] text-warn">
+                    Unavailable: {risk.unavailable_signals.map((name) => titleCase(name)).join(', ')}. Missing evidence is never treated as clean.
+                  </p>
+                )}
               </div>
               <p className="text-[11px] text-muted">Weights version: <span className="font-mono">{risk.weights_version}</span></p>
             </div>
@@ -194,11 +243,28 @@ export function ReportPage() {
             </ul>
           </Card>
 
-          <Card title="Sources">
-            <p className="text-xs font-semibold text-muted">Attempted ({result.sources_attempted.length})</p>
-            <TagList values={result.sources_attempted} />
-            <p className="mt-4 text-xs font-semibold text-muted">Succeeded ({result.sources_succeeded.length})</p>
-            <TagList values={result.sources_succeeded} />
+          <Card title="Evidence sources" subtitle="Status and timestamps for every checked source">
+            {result.evidence_sources?.length ? (
+              <ul className="space-y-3">
+                {result.evidence_sources.map((source, index) => (
+                  <li key={`${source.name}-${index}`} className="rounded-xl border border-line p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-semibold">{titleCase(source.name)}</p>
+                      <Badge tone={source.status === 'succeeded' ? 'safe' : 'warn'}>{titleCase(source.status)}</Badge>
+                    </div>
+                    <p className="mt-1 text-[11px] text-muted">
+                      Attempted {formatDateTime(source.attempted_at)} · Observed {formatDateTime(source.observed_at)}
+                    </p>
+                    {source.detail && <p className="mt-1 text-[11px] text-muted">{source.detail}</p>}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-muted">No source records were captured for this report.</p>
+            )}
+            <p className="mt-3 text-[11px] text-muted">
+              Attempted ({result.sources_attempted.length}) · Succeeded ({result.sources_succeeded.length})
+            </p>
           </Card>
         </div>
 
@@ -239,7 +305,7 @@ export function ReportPage() {
             </div>
           </Card>
 
-          <Card title="Model predictions" subtitle="Model outputs are advisory and carry explicit limitations">
+          <Card title="Model predictions" subtitle="Uncalibrated model risk scores are advisory, not fraud probabilities">
             <div className="space-y-4">
               {result.model_predictions.length ? result.model_predictions.map((prediction, index) => (
                 <div key={index} className="rounded-xl border border-line p-4">
@@ -249,7 +315,7 @@ export function ReportPage() {
                       {titleCase(prediction.prediction)} · {pct(prediction.fraud_probability)}
                     </Badge>
                   </div>
-                  <p className="mt-2 text-xs text-muted">Confidence: {pct(prediction.confidence)}</p>
+                  <p className="mt-2 text-xs text-muted">Model risk score (uncalibrated): {pct(prediction.fraud_probability)} · Model confidence: {pct(prediction.confidence)}</p>
                   {!!prediction.contributing_features?.length && (
                     <div className="mt-3 flex flex-wrap gap-1.5">
                       {prediction.contributing_features.map((feature, featureIndex) => (
@@ -277,7 +343,7 @@ export function ReportPage() {
           </div>
 
           <div className="grid gap-6 md:grid-cols-2">
-            <Card title="Missing evidence">
+            <Card title="Missing information / evidence">
               {result.missing_evidence.length ? (
                 <ul className="space-y-2">
                   {result.missing_evidence.map((item, index) => (
@@ -322,6 +388,68 @@ export function ReportPage() {
               </Field>
               <button className="btn-secondary" type="submit" disabled={sending}>
                 {sending ? <Spinner label="" className="min-h-0 p-0" /> : <><ShieldAlert className="h-4 w-4" /> Submit correction</>}
+              </button>
+            </form>
+          </Card>
+
+          <Card
+            title="Report a community concern"
+            subtitle="Separate from corrections. Moderators review claims; independent corroboration is required before any community signal is used."
+          >
+            {communityReceipt && (
+              <div className="mb-4 rounded-xl border border-line bg-elevated/40 p-3 text-sm text-muted">
+                <p className="flex items-center gap-2 font-semibold text-ink">
+                  <CheckCircle2 className="h-4 w-4 text-safe" />
+                  {communityReceipt.duplicate ? 'Matching report already on file' : 'Community report received'}
+                </p>
+                <p className="mt-1">
+                  Moderation state: <span className="font-mono">{communityReceipt.moderation_state}</span>
+                  {' · '}Duplicate group: <span className="font-mono">{communityReceipt.duplicate_group_key.slice(0, 12)}…</span>
+                </p>
+                <p className="mt-1">A single report cannot change an entity's risk classification.</p>
+              </div>
+            )}
+            <form onSubmit={submitCommunity} noValidate className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Claim type" htmlFor="community-claim">
+                  <select
+                    id="community-claim"
+                    className="input"
+                    value={community.claim_type}
+                    onChange={(event) => setCommunity((current) => ({ ...current, claim_type: event.target.value as CommunityClaimType }))}
+                  >
+                    <option value="missed_fraud">Missed fraud signal</option>
+                    <option value="impersonation">Brand impersonation</option>
+                    <option value="unauthorized_campaign">Unauthorised campaign</option>
+                    <option value="other">Other concern</option>
+                  </select>
+                </Field>
+                <Field label="Supporting URL (optional)" htmlFor="community-url">
+                  <input
+                    id="community-url"
+                    className="input"
+                    value={community.evidence_url}
+                    onChange={(event) => setCommunity((current) => ({ ...current, evidence_url: event.target.value }))}
+                    placeholder="https://…"
+                  />
+                </Field>
+              </div>
+              <Field
+                label="What did you observe?"
+                htmlFor="community-details"
+                error={communityErrors.details}
+                hint="At least 10 characters. Describe the claim, not a correction to this report."
+                required
+              >
+                <textarea
+                  id="community-details"
+                  className="input min-h-[110px] resize-y"
+                  value={community.details}
+                  onChange={(event) => setCommunity((current) => ({ ...current, details: event.target.value }))}
+                />
+              </Field>
+              <button className="btn-secondary" type="submit" disabled={sendingCommunity}>
+                {sendingCommunity ? <Spinner label="" className="min-h-0 p-0" /> : <><ShieldAlert className="h-4 w-4" /> Submit community report</>}
               </button>
             </form>
           </Card>

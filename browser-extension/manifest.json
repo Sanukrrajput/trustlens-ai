@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "TrustLens AI — Verify this page",
+  "version": "1.0.0",
+  "description": "User-triggered verification of the page you are viewing. No history collection, no background scanning, no silent monitoring.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "optional_host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Verify this page with TrustLens AI"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  }
+}

@@ -33,7 +33,7 @@ FAQ_ENTRIES: tuple[FaqEntry, ...] = (
         topic="greeting",
         question="Hello",
         answer=(
-            "Hello. I’m the HireShield support assistant. I answer common questions from the "
+            "Hello. I’m the TrustLens support assistant. I answer common questions from the "
             "project documentation and will say when I don’t have a grounded answer."
         ),
         keywords=("hello", "hey"),
@@ -41,22 +41,23 @@ FAQ_ENTRIES: tuple[FaqEntry, ...] = (
     ),
     FaqEntry(
         topic="purpose",
-        question="What does HireShield AI do?",
+        question="What does TrustLens AI do?",
         answer=(
-            "HireShield assists recruitment-fraud investigations. It extracts signals from job "
-            "text, messages, URLs or documents, combines them with approved text models and "
-            "optional public-source checks, then shows weighted evidence, limitations and "
-            "sources so a person can make the final decision."
+            "TrustLens assists online-offer verification. It extracts signals from offer text, "
+            "messages, URLs or documents, combines them with text models and optional "
+            "public-source checks, then shows weighted evidence, limitations and sources so a "
+            "person can make the final decision. Recruitment offers are one supported category; "
+            "giveaways, discounts, scholarships, investments and promotions are treated the same way."
         ),
-        keywords=("hireshield", "purpose", "product", "platform", "does", "work", "detect", "fraud"),
-        phrases=("what is hireshield", "what does hireshield do", "how does it work"),
+        keywords=("trustlens", "purpose", "product", "platform", "does", "work", "detect", "fraud"),
+        phrases=("what is trustlens", "what does trustlens do", "how does it work"),
         sources=("README.md",),
     ),
     FaqEntry(
         topic="judgement",
-        question="Is HireShield a replacement for my own judgement?",
+        question="Is TrustLens a replacement for my own judgement?",
         answer=(
-            "No. HireShield surfaces evidence and confidence, not certainty. An inconclusive "
+            "No. TrustLens surfaces evidence and confidence, not certainty. An inconclusive "
             "result is a valid outcome and means you should seek independent confirmation "
             "before acting on a listing or sender."
         ),
@@ -68,7 +69,7 @@ FAQ_ENTRIES: tuple[FaqEntry, ...] = (
         topic="guarantee",
         question="Do you guarantee that a job is legitimate?",
         answer=(
-            "No service can guarantee legitimacy. HireShield combines public signals, extraction "
+            "No service can guarantee legitimacy. TrustLens combines public signals, extraction "
             "and models, and explicitly labels missing evidence and technical limitations. A low "
             "risk score is not proof that an opportunity is safe."
         ),
@@ -108,8 +109,8 @@ FAQ_ENTRIES: tuple[FaqEntry, ...] = (
         question="What should I do with an inconclusive result?",
         answer=(
             "Treat inconclusive as a valid result, not a failure. Check the listed missing "
-            "evidence and technical limitations, then verify the employer, domain and offer "
-            "through independent channels before paying, sharing documents or accepting."
+            "evidence and technical limitations, then verify the company, campaign, domain and "
+            "offer through independent channels before paying, sharing documents or accepting."
         ),
         keywords=("inconclusive", "unverified", "missing", "unknown", "limited", "limitations"),
         phrases=("inconclusive", "missing evidence", "not enough evidence"),
@@ -117,7 +118,7 @@ FAQ_ENTRIES: tuple[FaqEntry, ...] = (
     ),
     FaqEntry(
         topic="single_word",
-        question="Will a single suspicious word make a listing high risk?",
+        question="Will a single suspicious word make an offer high risk?",
         answer=(
             "No. Risk is calculated from weighted evidence across multiple dimensions. A single "
             "suspicious phrase can be a signal, but corroborated indicators and independent "
@@ -146,7 +147,7 @@ FAQ_ENTRIES: tuple[FaqEntry, ...] = (
             "Check /api/v1/system/config for the live state. In this free evaluation deployment "
             "Razorpay and Stripe are not configured, so no payment can be taken and billing is "
             "reported as disabled. When a provider is configured, activation depends on signed "
-            "webhooks, not on returning from the checkout page. HireShield never collects card, "
+            "webhooks, not on returning from the checkout page. TrustLens never collects card, "
             "CVV, bank, PAN or KYC data; those details stay with the payment provider."
         ),
         keywords=("billing", "payment", "pay", "price", "pricing", "plan", "plans", "razorpay", "stripe", "subscription", "invoice", "checkout", "pan", "kyc", "card"),

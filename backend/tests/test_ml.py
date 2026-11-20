@@ -1,4 +1,4 @@
-"""Tests for HireShield AI ML training, inference, evaluation and risk scoring.
+"""Tests for TrustLens AI ML training, inference, evaluation and risk scoring.
 
 Run from the repository root:
 
@@ -314,7 +314,12 @@ def test_risk_inconclusive_with_no_evidence() -> None:
     assert result["evidence_summary"]
     assert result["recommended_actions"]
     assert "reassurance" in result["summary"]
-    assert set(result["component_scores"]) == {"ml", "rules", "domain", "company", "history", "message"}
+    assert set(result["component_scores"]) == {"content", "url", "brand", "threat", "community"}
+    assert result["signal_weights"] == pytest.approx(
+        {"content": 0.3, "url": 0.25, "brand": 0.25, "threat": 0.1, "community": 0.1}
+    )
+    assert result["unavailable_signals"] == ["content", "url", "brand", "threat", "community"]
+    assert result["uncertainty"] == pytest.approx(1.0 - result["confidence"])
 
 
 def test_verified_evidence_outweighs_unverified_evidence() -> None:
@@ -424,6 +429,79 @@ def test_high_risk_generates_actionable_guidance() -> None:
     assert result["inconclusive"] is False
     assert any("human fraud reviewer" in action for action in result["recommended_actions"])
     assert any("gift cards" in action for action in result["recommended_actions"])
+
+
+def test_risk_uses_specification_signal_split_and_renormalises() -> None:
+    result = score_risk(
+        ml_predictions=[],
+        indicators=[],
+        domain=None,
+        company=None,
+        historical=None,
+        message={"payment_demand": True},
+        settings=_settings(),
+    )
+    assert result["signal_weights"] == pytest.approx(
+        {"content": 0.3, "url": 0.25, "brand": 0.25, "threat": 0.1, "community": 0.1}
+    )
+    assert result["data_coverage"] == pytest.approx(0.3)
+    assert result["component_scores"]["content"] > 0
+    assert result["component_scores"]["url"] == 0
+    assert result["unavailable_signals"] == ["url", "brand", "threat", "community"]
+
+    custom = Settings(
+        risk_weight_content=0.6,
+        risk_weight_url=0.2,
+        risk_weight_brand=0.1,
+        risk_weight_threat=0.05,
+        risk_weight_community=0.05,
+    )
+    adjusted = score_risk(
+        ml_predictions=[],
+        indicators=[],
+        domain={"domain_age_days": 10},
+        company=None,
+        historical=None,
+        message={"payment_demand": True},
+        settings=custom,
+    )
+    assert adjusted["signal_weights"]["content"] == pytest.approx(0.6)
+    assert adjusted["data_coverage"] == pytest.approx(0.8)
+    assert adjusted["weights_version"] != result["weights_version"]
+
+
+def test_empty_threat_lookup_is_recorded_but_never_treated_as_clean() -> None:
+    result = score_risk(
+        ml_predictions=[],
+        indicators=[],
+        domain=None,
+        company=None,
+        historical=None,
+        message=None,
+        settings=_settings(),
+        threat={"status": "no_match"},
+    )
+    assert "threat" in result["unavailable_signals"]
+    assert result["component_scores"]["threat"] == 0.0
+    assert any("absence of a match" in line.lower() for line in result["evidence_summary"])
+
+
+def test_score_bands_are_configurable_and_validated() -> None:
+    settings = Settings(
+        risk_band_low_max=9,
+        risk_band_limited_max=29,
+        risk_band_moderate_max=49,
+        risk_band_high_max=69,
+    )
+    assert _categorise(15, settings) == "Limited warning signals"
+    assert _categorise(70, settings) == "Critical risk indicators"
+    with pytest.raises(ValueError):
+        Settings(
+            risk_band_low_max=50,
+            risk_band_limited_max=40,
+            risk_band_moderate_max=60,
+            risk_band_high_max=80,
+        )
 
 
 # ------------------------------------------------------------- training tests

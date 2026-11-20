@@ -1,8 +1,8 @@
-# HireShield AI — API Reference
+# TrustLens AI — API Reference
 
 Scope: every route registered by `backend/app/main.py` and the route modules under `backend/app/api/routes/`. All paths below are relative to the API prefix `/api/v1` unless explicitly marked as a root path. Request/response models are defined in `backend/app/schemas.py`.
 
-**Local environment:** no `.env` exists in this workspace. Credentials and keys default to empty strings, so `/system/config` reports all external integrations as unavailable/unconfigured, no paid checkout can be created (503), and no simulated intelligence results are returned.
+**Local environment:** the untracked root `.env` contains Razorpay **test** billing variables only; committed templates leave every credential empty. All non-billing credentials therefore default to empty strings, `/system/config` reports those integrations as unavailable/unconfigured, and no simulated intelligence results are returned.
 
 ## 1. Conventions
 
@@ -13,10 +13,11 @@ Scope: every route registered by `backend/app/main.py` and the route modules und
 | Roles | `user = student < staff < admin < owner`; `require_admin` accepts admin or owner. Ownership is checked separately on analyses, reports and monitoring tasks. |
 | Content type | JSON for all bodies except `POST /analysis/document` (`multipart/form-data`) and provider webhooks (raw body). |
 | Error shape | `{"detail": "..."}`; validation errors use `{"detail": [{"loc": [...], "msg": "..."}]}` (HTTP 422). |
-| Rate limiting | Selected routes: 120 requests / client IP / path / 60 seconds, in-process sliding window (`backend/app/api/deps.py`). |
+| Rate limiting | Selected routes: `RATE_LIMIT_PER_MINUTE` (default 120) requests / client IP / path / `RATE_LIMIT_WINDOW_SECONDS` (default 60), in-process sliding window; `429` includes `Retry-After` (`backend/app/api/deps.py`). |
+| Request IDs | Every response carries `X-Request-ID`. A caller-supplied value is accepted only when it is 8–64 alphanumeric characters; otherwise the server generates a 32-character hex id. The same id is written to `ctx_request_id` structured logs. |
 | Usage accounting | Middleware records one `api_usage` increment per authenticated `/api/*` request per user per UTC hour, excluding `/api/v1/auth/refresh`. |
 | Docs | `/docs` and `/openapi.json` exist only when `ENVIRONMENT != production`; ReDoc is disabled. |
-| Security headers | `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-Opener-Policy`, CSP on every response; HSTS in production. |
+| Security headers | `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-Opener-Policy`, `X-Request-ID`, CSP on every response; HSTS in production. |
 
 ## 2. Public endpoints (no access token)
 
@@ -56,7 +57,8 @@ All routes in this section require a valid access token (`get_current_user`). Ow
 
 | Method | Path | Purpose | Request | Response |
 | --- | --- | --- | --- | --- |
-| `POST` | `/analysis/job` | Analyse a posting | `JobAnalysisRequest` | `AnalysisResult` |
+| `POST` | `/analysis/offer` | Analyse a generic online offer with category | `OfferAnalysisRequest` | `AnalysisResult` |
+| `POST` | `/analysis/job` | Analyse a recruitment posting (compatible alias) | `JobAnalysisRequest` | `AnalysisResult` |
 | `POST` | `/analysis/message` | Analyse a recruiter message | `MessageAnalysisRequest` | `AnalysisResult` |
 | `POST` | `/analysis/url` | Analyse a URL | `UrlAnalysisRequest` | `AnalysisResult` |
 | `POST` | `/analysis/document` | Analyse PDF/image/text upload | multipart: `file`, `consent_external_lookups`, optional `client_request_id` | `AnalysisResult` |
@@ -66,7 +68,8 @@ All routes in this section require a valid access token (`get_current_user`). Ow
 Notes from `backend/app/api/routes/analysis.py`:
 
 - All four submission routes use `enforce_rate_limit` and convert `PermissionError` from `PlanService.can_scan()` into **402** (plan inactive or scan limit reached).
-- Document uploads validate size (10 MB), declared MIME, magic bytes and filename before parsing; invalid uploads produce **400**.
+- Document uploads validate size (10 MB), declared MIME, magic bytes and filename before parsing; invalid uploads produce **400**. Image uploads are handled by the optional local OCR engine: it reports `not_configured` when no `tesseract` binary is installed and never treats an image as proof of authenticity.
+- Every analysis result now includes `image_intelligence` (only for image uploads), `brand_intelligence` and `threat_intelligence`. Brand states are `verified_company`, `verified_official_campaign`, `unverified_advertisement`, `suspected_impersonation` and `not_attempted`; no campaign is verified without independent evidence.
 - `GET /analysis` rejects `page < 1` or `page_size` outside 1–100 with **400**.
 - `GET /analysis/{id}` returns 404 for a missing analysis and enforces owner/`admin`/`owner` access when an analysis document exists. If no analysis exists but a `task_status` document does, it returns a `TaskStatusOut` (task polling path).
 
@@ -86,12 +89,13 @@ Notes from `backend/app/api/routes/analysis.py`:
 
 | Method | Path | Purpose | Response / notes |
 | --- | --- | --- | --- |
-| `POST` | `/reports/feedback` | Submit correction/dispute | `UserReportCreate` → `UserReportOut` with `status: pending_review`; requires ownership of the analysis. |
+| `POST` | `/reports/feedback` | Submit a correction to one assessment | `UserReportCreate` → `UserReportOut` with `category: correction`, `moderation_state: pending`, `status: pending_review`; requires ownership of the analysis. Corrections never become community evidence. |
+| `POST` | `/reports/community` | Submit a community allegation about the entity | `CommunityReportCreate` → `UserReportOut` with `category: community`, `moderation_state: pending`; requires ownership of the analysis. |
 | `GET` | `/reports/{analysis_id}` | Report metadata | `{analysis_id, report_id, generated_at, risk, status:"available"}`; ownership/admin bypass. |
 | `GET` | `/reports/{analysis_id}/pdf` | Download PDF | `application/pdf` with `Content-Disposition`; generated and cached in `reports` if absent. |
 | `GET` | `/reports/export/analyses.csv` | Export analyses | **Admin-only**; `text/csv`, up to 5,000 analyses. Registered before the dynamic `/{analysis_id}` route. |
 
-Ownership failures for reports return **403** `not permitted`; missing analyses return **404**.
+Ownership failures for reports return **403** `not permitted`; missing analyses return **404**. Both report routes hash the claim text to a `claim_key`, derive a stable pseudonymous `entity_key` from the analysis fingerprint/domain, and enforce a unique `dedupe_key` of reporter + entity + claim. Re-submitting the same claim returns the original document with `duplicate=true` and an updated `duplicate_count`; a different reporter submitting the same claim creates a distinct report in the same `duplicate_group_key`. `UserReportOut` also exposes `category`, `moderation_state`, `entity_key`, `claim_key`, `dedupe_key`, `duplicate_group_key`, `duplicate_of`, `duplicate`, `reporter_reputation` (`score`, `basis`, `computed_at`), `reviewed_by`, `reviewed_at`, `review_notes`, `is_false_report`, `false_report_reason`, `evidence_url` and `updated_at`. Reporter reputation starts neutral at 0.5, is bounded to 0.05–0.95, and is a weighting input only — never proof that a claim is true.
 
 ### 3.5 Notifications
 
@@ -124,8 +128,8 @@ Every route below depends on `require_admin` (`backend/app/api/deps.py:92`). A n
 | `PATCH` | `/admin/users/{user_id}/active` | Enable/disable user | 404 missing; 403 if disabling an `owner` |
 | `GET` | `/admin/audit-logs` | Paginated audit trail | optional `action` regex filter (case-insensitive) |
 | `GET` | `/admin/models` | Model versions and active flags | `{items, active}` |
-| `GET` | `/admin/reports` | User feedback reports (max 200) | `{items,total}` |
-| `PATCH` | `/admin/reports/{report_id}` | Review feedback | `ReportReview`: `reviewed\|dismissed\|actioned`, optional notes |
+| `GET` | `/admin/reports` | User reports and community claims (max 200) | `{items,total}` |
+| `PATCH` | `/admin/reports/{report_id}` | Apply a moderation decision | `ReportReview`: `moderation_state` (`pending\|verified\|corroborated\|false_report\|dismissed`) or legacy `status` (`reviewed\|dismissed\|actioned`), optional `review_notes` and `false_report_reason`; at least one decision field required. Writes `admin.report_reviewed` plus the state-specific `admin.report_*` audit action with previous/new state metadata. |
 | `GET` | `/admin/plans` | All plans sorted by monthly price | `{items}` |
 | `PATCH` | `/admin/plans/{code}` | Edit plan fields | `PlanChange`; 404 missing, 400 when no changes |
 | `GET` | `/admin/config` | Non-secret settings | `Settings.public_dict()` with secrets masked as `***configured***` |
@@ -135,6 +139,14 @@ Every route below depends on `require_admin` (`backend/app/api/deps.py:92`). A n
 | `POST` | `/system/tasks/domain-refresh` | Trigger `refresh_domain_intelligence` | `TriggerOut` |
 | `POST` | `/system/tasks/analytics` | Trigger `aggregate_analytics` | `TriggerOut` |
 | `POST` | `/system/tasks/health-check` | Trigger `health_check` | `TriggerOut` |
+| `POST` | `/system/tasks/retention` | Trigger the configured retention purge immediately | `TriggerOut`; dispatch queues `app.workers.tasks.cleanup_retention`, which honours `RETENTION_ENABLED` and `SCHEDULER_ENABLED` |
+| `GET` | `/threat-intelligence/sources` | Source registry with `configured`/`not_configured`/`disabled` states | `{sources: [...]}` |
+| `POST` | `/threat-intelligence/sources` | Register an optional public JSON feed; URL structure is SSRF-validated | `ThreatSourceRegister` → public source record; **400** for unsafe URLs |
+| `POST` | `/threat-intelligence/sources/{source_id}/refresh` | SSRF-safe fetch and import of a configured feed | `{status, ingested, limitations}`; `not_configured` when no URL exists |
+| `POST` | `/threat-intelligence/import` | Import structured indicators directly | `ThreatImport` (max 1000 items) → `{status, ingested, skipped}` |
+| `GET` | `/threat-intelligence/indicators` | Inspect deduplicated stored indicators | `{total, items}`; `limit` 1–200 |
+
+Moderation details: invalid state transitions return **409** `invalid moderation transition: <from> -> <to>`; `false_report` without a non-empty `false_report_reason` returns **400**; legacy `status="reviewed"` maps to `moderation_state="pending"` and is deliberately not treated as verification. Allowed transitions are `pending → pending|verified|corroborated|false_report|dismissed`, `verified → verified|corroborated|false_report|dismissed`, `corroborated → corroborated|false_report|dismissed`, `false_report → false_report|pending`, and `dismissed → dismissed|pending|verified`. Only `verified` or `corroborated` **community** reports from at least two distinct reporters produce a `community_independently_corroborated` indicator; a single report cannot change a risk classification. Non-admins (including report owners) receive **403** from the moderation route.
 
 `TriggerOut` status is `queued` on successful dispatch; dispatch failures are returned as status `failed` with an `error` string rather than raising.
 
@@ -151,10 +163,12 @@ Source: `backend/app/schemas.py` (class names below).
 | `MessageAnalysisRequest` | `text` (5–100k), `channel` (`email\|sms\|whatsapp\|unknown`), optional `sender`, `consent_external_lookups`, `client_request_id` |
 | `UrlAnalysisRequest` | `url` (5–2048), `consent_external_lookups`, `client_request_id` |
 | `CompanyVerifyRequest` | `company_name`, optional `website_url`, `corporate_id`, two independent consent flags |
-| `AnalysisResult` | `id`, `analysis_type`, `status`, `user_id`, `created_at`, `completed_at`, redacted `input_preview`, `extracted`, `model_predictions`, `domain_intelligence`, `company_intelligence`, `message_intelligence`, `historical_intelligence`, `indicators`, `missing_evidence`, `technical_limitations`, `risk`, `sources_attempted`, `sources_succeeded`, `report_id` |
-| `RiskAssessment` | `score` (0–100), `category`, `inconclusive`, `summary`, `evidence_summary`, `recommended_actions`, `confidence`, `data_coverage`, `weights_version`, `component_scores` |
-| `EvidenceIndicator` | `name`, `status` (confirmed_malicious → supportive), `severity`/`confidence` 0–1, `description`, `source`, optional `reference_url`, `observed_at`, `independently_verified`, optional `expires_at`, `weight` |
-| `ModelPrediction` | `model_name`, `model_version`, `prediction`, `fraud_probability`, `confidence`, `contributing_features`, `limitations` |
+| `OfferAnalysisRequest` | `text` (20–200k), `offer_category` (`advertisement\|giveaway\|scholarship\|investment\|recruitment\|promotion\|other`), optional `company_name`, `source_url`, `consent_external_lookups`, `consent_corporate_registry_lookup`, `client_request_id` |
+| `AnalysisResult` | `id`, `analysis_type`, `offer_category`, `status`, `user_id`, `created_at`, `completed_at`, redacted `input_preview`, `extracted`, `model_predictions`, `domain_intelligence`, `company_intelligence`, `message_intelligence`, `historical_intelligence`, `image_intelligence`, `brand_intelligence`, `threat_intelligence`, `community_intelligence`, `indicators`, `evidence_sources`, `evidence_collected_at`, `missing_evidence`, `technical_limitations`, `risk`, `sources_attempted`, `sources_succeeded`, `report_id` |
+| `RiskAssessment` | `score` (0–100), `category`, `inconclusive`, `summary`, `evidence_summary`, `recommended_actions`, `confidence`, `uncertainty`, `data_coverage`, `weights_version`, `signal_weights`, `unavailable_signals`, `component_scores` |
+| `EvidenceSource` | `name`, `status`, `attempted_at`, `observed_at`, optional `detail` — one honest record per checked source |
+| `EvidenceIndicator` | `name`, `status` (confirmed_malicious → supportive), `severity`/`confidence` 0–1, `description`, `source`, optional `reference_url`, `observed_at`, `independently_verified`, optional `expires_at`, `weight`, `signal_category` (`content\|url\|brand\|threat\|community\|coverage`) |
+| `ModelPrediction` | `model_name`, `model_version`, `prediction`, `fraud_probability` (legacy field name; display as an **uncalibrated model risk score**, never as a fraud probability), `confidence`, `contributing_features`, `limitations` |
 | `AnalysisListItem` / `Paginated[T]` | list items plus `total`, `page`, `page_size`, `pages` |
 | `TaskStatusOut` | `task_id`, `status`, optional `result`, `error` |
 | `MonitoringTaskCreate` / `Out` | `name`, `company_names`, `job_titles`, `source_urls`, `keywords`, `enabled`, `notify_email`, `notify_in_app`; `Out` adds `user_id`, `created_at`, `last_run_at`, `last_status` |
@@ -163,27 +177,34 @@ Source: `backend/app/schemas.py` (class names below).
 | `CheckoutRequest` | `plan_code`, `interval` (`monthly\|yearly`), `provider` (`razorpay\|stripe`), optional `success_url`, `cancel_url` |
 | `CheckoutOut` | `provider`, `checkout_id` (Razorpay order id), optional `key_id` (public Razorpay key), optional `checkout_url` (Stripe), `amount`, `currency`, optional `name`, `description`, `mode` (`test\|live\|unknown`) |
 | `SubscriptionOut` | `id`, `user_id`, `plan_code`, `status`, `interval`, `provider`, `current_period_end`, `scans_used`, `scan_limit`, `cancel_at_period_end` |
-| `UserReportCreate` / `Out` | `analysis_id`, `report_type` (`false_positive\|missed_fraud\|identity_correction\|other`), `details`, optional `evidence_url`; `Out` adds `user_id`, `status`, `created_at` |
+| `UserReportCreate` | Correction input: `analysis_id`, `report_type` (`false_positive\|missed_fraud\|identity_correction\|other`), `details` (10–5000 chars), optional `evidence_url` |
+| `CommunityReportCreate` | Community input: `analysis_id`, `claim_type` (`missed_fraud\|impersonation\|unauthorized_campaign\|other`), `details` (10–5000 chars), optional `evidence_url` |
+| `UserReportOut` | `id`, `analysis_id`, `user_id`, `category` (`correction\|community`), `report_type`, `details`, `status`, `moderation_state`, `entity_key`, `claim_key`, `dedupe_key`, `duplicate_group_key`, `duplicate_of`, `duplicate_count`, `duplicate`, `reporter_reputation`, `reviewed_by`, `reviewed_at`, `review_notes`, `is_false_report`, `false_report_reason`, `evidence_url`, `created_at`, `updated_at` |
+| `ReporterReputation` | `score` (0–1), `basis` (counts by moderation state), `computed_at` |
+| `ReportReview` | Admin moderation input: `status` or `moderation_state` (one required), optional `review_notes`, `false_report_reason` |
+| `community_intelligence` | `status` (`no_stable_entity\|insufficient_independent_reports\|corroborated`), `entity_key`, `supporting_reports`, `independent_reporters`, `average_reputation`, `weighted_support`, `moderation_states`, `indicators`, `limitations` |
+| `ThreatSourceRegister` | `source_id`, `name`, `kind` (`public_json_feed\|import`), optional `url`, `enabled`, `description` |
+| `ThreatIndicatorIn` / `ThreatImport` | `kind` (`domain\|url\|email\|phone\|brand\|ip\|fingerprint\|generic`), `value`, `status`, `severity`, `confidence`, `description`, optional `reference_url`/`source_url`, `independently_verified`, `ttl_days`; import wraps up to 1000 indicators |
 
-The risk categories are defined in `backend/app/core/risk_engine.py`: `0–19 Low observed risk`, `20–39 Limited warning signals`, `40–59 Moderate risk`, `60–79 High risk`, `80–100 Critical risk indicators`. Low evidence coverage forces `inconclusive=true`; a low score is never a safety guarantee.
+The five signal categories and the default specification weights are `content` 30%, `url` 25%, `brand` 25%, `threat` 10% and `community` 10%. Weights and score-band bounds are environment-configurable (`RISK_WEIGHT_*`, `RISK_BAND_*_MAX`) and normalised at runtime; `weights_version` records the exact weights and bands used. Default bands are `0–19 Low observed risk`, `20–39 Limited warning signals`, `40–59 Moderate risk`, `60–79 High risk`, `80–100 Critical risk indicators`. Low evidence coverage forces `inconclusive=true`; an empty or no-match threat/brand/history lookup remains in `unavailable_signals` and is never counted as a clean result. A low score is never a safety guarantee or a calibrated fraud probability.
 
 ## 6. Error conventions and rate limits
 
 | Status | Typical causes |
 | --- | --- |
-| 400 | Invalid pagination, upload validation, invalid email/reset token, disallowed redirect URL, malformed monitoring task, missing plan changes |
+| 400 | Invalid pagination, upload validation, invalid email/reset token, disallowed redirect URL, malformed monitoring task, missing plan changes, moderation decision with no state, `false_report` without a reason |
 | 401 | Missing/malformed bearer header, invalid/expired token, wrong token type, revoked `jti`, unavailable user |
 | 402 | `PlanService.can_scan()` denied: subscription not active or scan limit reached (analysis routes) |
 | 403 | Insufficient role, non-owned analysis/report, disabled account at login, role escalation attempt, owner disable attempt |
 | 404 | Unknown analysis/company/monitor/notification/report/user, unknown webhook provider, plan not found |
-| 409 | Email already registered |
+| 409 | Email already registered, invalid moderation state transition |
 | 422 | Pydantic validation failure; `detail` is a list of `{loc, msg}` |
 | 429 | Rate limit exceeded on rate-limited routes |
 | 500 | Generic unhandled error (`internal server error`) or webhook processing failure |
 | 502 | Payment provider temporarily unavailable |
 | 503 | Database not ready, `PyMongoError`, or `PaymentConfigurationError` (integration not configured) |
 
-Rate-limited routes (`enforce_rate_limit` dependency): `POST /auth/register`, `POST /auth/login`, `POST /auth/forgot-password`, and `POST /analysis/{job,message,url,document}`. The limiter key is `<client host>:<path>`, so the same client has an independent window per route. It is in-process; restart resets it and multiple API replicas do not share counters. `RATE_LIMIT_PER_MINUTE` is present in settings but the dependency is currently constructed with a fixed limit of 120 (`backend/app/api/deps.py:13`).
+Rate-limited routes (`enforce_rate_limit` dependency): `POST /auth/register`, `POST /auth/login`, `POST /auth/forgot-password`, `POST /analysis/{job,message,url,document}`, and `GET/DELETE /support/chat`. The limiter key is `<client host>:<path>`, so the same client has an independent window per route. The policy comes from `RATE_LIMIT_PER_MINUTE` and `RATE_LIMIT_WINDOW_SECONDS`; a `429` response includes `Retry-After` equal to the window. The limiter is in-process: restart resets it and multiple API replicas do not share counters.
 
 ## 7. Webhook contract
 
@@ -226,4 +247,4 @@ The demo credentials above are development seed values from `backend/app/core/co
 
 ## 9. Verification
 
-Endpoint inventory and shapes were checked against the route decorators and Pydantic models in the files cited above. Backend tests: 73 passed (`python -m pytest backend/tests -q`). Frontend tests: 27 passed across 7 files (`npm test -- --run`); `npm run build` succeeds. No live provider keys or signed webhook activation drill have been performed; the free evaluation deployment reports billing, Turnstile and credentialed intelligence providers as disabled or unconfigured through `/api/v1/system/config`.
+Endpoint inventory and shapes were checked against the route decorators and Pydantic models in the files cited above. Final verification: backend **111 passed** (`python -m pytest backend/tests -q --tb=line`), frontend **29 passed** across 7 files (`npm run test -- --run`), browser extension **6 passed** (`npm test`), `npm run build` and `docker compose config --quiet` succeeded, Ruff/compileall/secret scan passed. `npm audit --omit=dev --audit-level=high` exited 0 with 0 high/critical advisories; `pip-audit` reported open advisories documented in [SECURITY.md](SECURITY.md). No live provider keys, OCR binary or signed webhook activation drill were used; the free evaluation deployment reports billing, Turnstile and credentialed intelligence providers as disabled or unconfigured through `/api/v1/system/config`.

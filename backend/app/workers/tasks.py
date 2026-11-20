@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import logging
-from datetime import timedelta
 from typing import Any
 
 import requests
@@ -182,3 +181,25 @@ def health_check(self) -> dict[str, Any]:
     ctx["repos"].mongo.db["health_checks"].insert_one({"health": health, "created_at": utcnow()})
     _status(task_id, "completed", result=health)
     return health
+
+
+@celery_app.task(bind=True)
+def cleanup_retention(self) -> dict[str, Any]:
+    """Apply configured retention periods; skipped when automation is disabled."""
+    task_id = str(self.request.id)
+    _status(task_id, "started", kind="retention")
+    ctx = worker_context()
+    settings = ctx["settings"]
+    if not settings.scheduler_enabled or not settings.retention_enabled:
+        result = {
+            "status": "skipped",
+            "reason": "SCHEDULER_ENABLED=false" if not settings.scheduler_enabled else "RETENTION_ENABLED=false",
+        }
+        _status(task_id, "skipped", result=result)
+        return result
+
+    from app.services.retention_service import enforce_retention
+
+    result = enforce_retention(ctx["repos"], settings)
+    _status(task_id, "completed", result={"total_deleted": result["total_deleted"]})
+    return result

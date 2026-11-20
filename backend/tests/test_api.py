@@ -118,6 +118,41 @@ def test_url_analysis_handles_provenance_wrapped_domain_age(client: TestClient, 
     assert any(item["model_name"] == "anomaly_rule_fallback" for item in body["model_predictions"])
 
 
+def test_completed_report_contains_structured_evidence_fields(client: TestClient) -> None:
+    headers, _ = _auth_client(client)
+    response = client.post(
+        f"{BASE}/analysis/offer",
+        headers=headers,
+        json={
+            "text": (
+                "LIMITED OFFER: transfer INR 2000 now to claim your scholarship grant and send "
+                "your bank OTP to the organiser before the offer expires today."
+            ),
+            "offer_category": "scholarship",
+            "company_name": "Example Foundation",
+            "consent_external_lookups": False,
+        },
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    risk = body["risk"]
+
+    assert set(risk["signal_weights"]) == {"content", "url", "brand", "threat", "community"}
+    assert isinstance(risk["uncertainty"], (int, float))
+    assert 0.0 <= risk["uncertainty"] <= 1.0
+    assert isinstance(risk["unavailable_signals"], list)
+    assert risk["recommended_actions"]
+    assert body["evidence_collected_at"]
+    assert body["evidence_sources"]
+    for source in body["evidence_sources"]:
+        assert {"name", "status", "attempted_at", "observed_at"} <= set(source)
+    assert body["missing_evidence"]
+
+    pdf = client.get(f"{BASE}/reports/{body['id']}/pdf", headers=headers)
+    assert pdf.status_code == 200, pdf.text
+    assert pdf.content.startswith(b"%PDF")
+
+
 def test_health_public_config_and_security_headers(client: TestClient) -> None:
     health = client.get("/health")
     assert health.status_code == 200
@@ -125,7 +160,7 @@ def test_health_public_config_and_security_headers(client: TestClient) -> None:
     assert client.get(f"{BASE}/health").status_code == 200
 
     config = client.get(f"{BASE}/system/config").json()
-    assert config["app_name"] == "HireShield AI"
+    assert config["app_name"] == "TrustLens AI"
     assert isinstance(config["integrations"], dict)
     assert config["features"]["webhook_only_payment_activation"] is True
     assert "secret_key" not in json.dumps(config)
@@ -288,7 +323,7 @@ def test_razorpay_checkout_creates_order_with_server_notes(client: TestClient, m
     assert body["checkout_id"] == "order_test_1"
     assert body["key_id"] == "rzp_test_local_key"
     assert body["mode"] == "test"
-    assert body["name"] == "HireShield AI — Professional"
+    assert body["name"] == "TrustLens AI — Professional"
     assert captured["url"] == "https://api.razorpay.com/v1/orders"
     assert captured["kwargs"]["auth"] == ("rzp_test_local_key", "local-secret")
     assert captured["kwargs"]["json"]["amount"] == 29900
@@ -694,4 +729,101 @@ def test_turnstile_provider_outage_denies_login(client: TestClient, monkeypatch:
     response = client.post(f"{BASE}/auth/login", json={**credentials, "turnstile_token": "any-token"})
     assert response.status_code == 400
     assert "temporarily unavailable" in response.json()["detail"]
+
+
+def test_generic_offer_analysis_end_to_end(client: TestClient) -> None:
+    """Offer submissions use honest offer rules and retain campaign uncertainty."""
+    headers, _ = _auth_client(client)
+    payload = {
+        "text": (
+            "Congratulations! You won a guaranteed prize. Share with 10 friends and pay a "
+            "processing fee to claim your reward. Act now, today only."
+        ),
+        "offer_category": "giveaway",
+        "company_name": "Example Brands",
+        "consent_external_lookups": False,
+        "client_request_id": f"offer-{uuid.uuid4().hex}",
+    }
+    response = client.post(f"{BASE}/analysis/offer", json=payload, headers=headers)
+    assert response.status_code == 200, response.text
+    body = response.json()
+
+    assert body["analysis_type"] == "offer"
+    assert body["offer_category"] == "giveaway"
+    assert body["status"] == "completed"
+    assert any(pred["model_name"] == "offer_rule_fallback" for pred in body["model_predictions"])
+    assert all("recruitment-text" not in pred["model_name"] for pred in body["model_predictions"])
+    assert any(item["source"] == "offer_rules" for item in body["indicators"])
+    assert "offer_rules" in body["sources_attempted"]
+    assert any("authorised" in item.lower() for item in body["missing_evidence"])
+    assert isinstance(body["risk"]["score"], int)
+
+    report = client.get(f"{BASE}/reports/{body['id']}", headers=headers)
+    assert report.status_code == 200
+
+
+def test_analysis_exposes_brand_threat_and_image_engines(client: TestClient) -> None:
+    """The three Stage 4 engines are visible in a completed report."""
+    from app.core.config import Settings
+
+    settings = Settings()
+    admin_login = client.post(
+        f"{BASE}/auth/login",
+        json={"email": settings.admin_email, "password": settings.admin_password},
+    )
+    assert admin_login.status_code == 200, admin_login.text
+    admin_headers = {"Authorization": f"Bearer {admin_login.json()['access_token']}"}
+    domain = f"threat-{uuid.uuid4().hex[:8]}.example.com"
+    imported = client.post(
+        f"{BASE}/threat-intelligence/import",
+        headers=admin_headers,
+        json={"indicators": [{"kind": "domain", "value": domain, "severity": 0.8}]},
+    )
+    assert imported.status_code == 200, imported.text
+
+    headers, _ = _auth_client(client)
+    response = client.post(
+        f"{BASE}/analysis/offer",
+        headers=headers,
+        json={
+            "text": (
+                "Limited giveaway announced today. Visit the official page and pay a small "
+                "processing fee to claim your reward."
+            ),
+            "offer_category": "giveaway",
+            "company_name": "Example Brands",
+            "source_url": f"https://{domain}/claim",
+            "consent_external_lookups": False,
+            "client_request_id": f"offer-engines-{uuid.uuid4().hex}",
+        },
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["image_intelligence"] == {}
+    assert body["brand_intelligence"]["state"] in {
+        "verified_company",
+        "verified_official_campaign",
+        "unverified_advertisement",
+        "suspected_impersonation",
+    }
+    assert body["threat_intelligence"]["status"] == "ok"
+    assert body["threat_intelligence"]["matches"]
+    assert any(item["name"] == "threat_feed_match" for item in body["indicators"])
+    assert "brand_verification" in body["sources_attempted"]
+    assert "threat_indicator_store" in body["sources_attempted"]
+
+
+def test_offer_submission_rejects_short_text_and_unknown_category(client: TestClient) -> None:
+    headers, _ = _auth_client(client)
+    assert client.post(
+        f"{BASE}/analysis/offer",
+        json={"text": "too short", "offer_category": "other"},
+        headers=headers,
+    ).status_code == 422
+    long_text = "A perfectly normal community announcement with enough detail to be analysed."
+    assert client.post(
+        f"{BASE}/analysis/offer",
+        json={"text": long_text, "offer_category": "lottery"},
+        headers=headers,
+    ).status_code == 422
 

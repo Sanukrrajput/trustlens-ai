@@ -5,6 +5,7 @@ import {
   Link2,
   Loader2,
   Mail,
+  Megaphone,
   ScanSearch,
   ShieldCheck,
   Sparkles,
@@ -15,9 +16,10 @@ import { Card, Field, SectionHeading, Tabs } from '../components/ui';
 import { useToast } from '../context/ToastContext';
 import { analysisApi, resolveAnalysis } from '../lib/api';
 import { errorText } from '../lib/utils';
-import { validateJob, validateMessage, validateUrl } from '../lib/validation';
+import { validateJob, validateMessage, validateOffer, validateUrl } from '../lib/validation';
+import type { OfferCategory } from '../types';
 
-type ScannerTab = 'job' | 'url' | 'message' | 'document';
+type ScannerTab = 'job' | 'offer' | 'url' | 'message' | 'document';
 
 const progressSteps = [
   'Preparing submission…',
@@ -51,6 +53,7 @@ export function ScannerPage() {
     job_title: '',
     recruiter_email: '',
     source_url: '',
+    offer_category: 'other' as OfferCategory,
     channel: 'email' as 'email' | 'sms' | 'whatsapp' | 'unknown',
     sender: '',
     url: '',
@@ -81,7 +84,9 @@ export function ScannerPage() {
     const found =
       tab === 'job'
         ? validateJob(form)
-        : tab === 'message'
+        : tab === 'offer'
+          ? validateOffer(form)
+          : tab === 'message'
           ? validateMessage(form)
           : tab === 'url'
             ? validateUrl(form)
@@ -103,6 +108,14 @@ export function ScannerPage() {
           company_name: form.company_name.trim() || undefined,
           job_title: form.job_title.trim() || undefined,
           recruiter_email: form.recruiter_email.trim() || undefined,
+          source_url: form.source_url.trim() || undefined,
+        });
+      } else if (tab === 'offer') {
+        initial = await analysisApi.submitOffer({
+          ...request,
+          text: form.text.trim(),
+          offer_category: form.offer_category,
+          company_name: form.company_name.trim() || undefined,
           source_url: form.source_url.trim() || undefined,
         });
       } else if (tab === 'message') {
@@ -135,8 +148,8 @@ export function ScannerPage() {
     <div>
       <SectionHeading
         eyebrow="Analysis engine"
-        title="Start a new investigation"
-        description="Choose an input type. Results explain what was observed, what could not be verified, and how confident the assessment is."
+        title="Verify an offer before you act"
+        description="Submit an offer, message, URL or screenshot. Results explain what was observed, what could not be verified, and how confident the assessment is."
       />
 
       <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
@@ -151,6 +164,7 @@ export function ScannerPage() {
               }}
               items={[
                 { key: 'job', label: 'Job text', icon: <TextQuote className="h-4 w-4" /> },
+                { key: 'offer', label: 'Offer', icon: <Megaphone className="h-4 w-4" /> },
                 { key: 'url', label: 'URL', icon: <Link2 className="h-4 w-4" /> },
                 { key: 'message', label: 'Recruiter message', icon: <Mail className="h-4 w-4" /> },
                 { key: 'document', label: 'Document', icon: <FileUp className="h-4 w-4" /> },
@@ -180,6 +194,37 @@ export function ScannerPage() {
                     <input id="job-source" className="input" value={form.source_url} onChange={(event) => set('source_url', event.target.value)} placeholder="https://… (optional)" />
                   </Field>
                 </div>
+              </>
+            )}
+
+            {tab === 'offer' && (
+              <>
+                <Field label="Offer text" htmlFor="offer-text" error={errors.text} hint="Paste the full advertisement or message — at least 20 characters. Remove passwords, OTPs and full card numbers before submitting." required>
+                  <textarea id="offer-text" className="input min-h-[220px] resize-y font-mono text-xs leading-relaxed" value={form.text} onChange={(event) => set('text', event.target.value)} placeholder="Paste the offer, giveaway, scholarship or investment message here…" />
+                </Field>
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <Field label="Offer category" htmlFor="offer-category">
+                    <select id="offer-category" className="input" value={form.offer_category} onChange={(event) => set('offer_category', event.target.value as OfferCategory)}>
+                      <option value="other">Other offer</option>
+                      <option value="advertisement">Advertisement</option>
+                      <option value="giveaway">Giveaway / prize</option>
+                      <option value="scholarship">Scholarship</option>
+                      <option value="investment">Investment</option>
+                      <option value="recruitment">Recruitment</option>
+                      <option value="promotion">Promotion / discount</option>
+                    </select>
+                  </Field>
+                  <Field label="Claimed company or brand" htmlFor="offer-company">
+                    <input id="offer-company" className="input" value={form.company_name} onChange={(event) => set('company_name', event.target.value)} placeholder="Optional" />
+                  </Field>
+                  <Field label="Source URL" htmlFor="offer-source" error={errors.source_url}>
+                    <input id="offer-source" className="input" value={form.source_url} onChange={(event) => set('source_url', event.target.value)} placeholder="https://… (optional)" />
+                  </Field>
+                </div>
+                <p className="rounded-xl border border-line bg-elevated/50 p-3 text-xs text-muted">
+                  No trained general-offer model is approved. Generic offers are scored with transparent rules and corroborating
+                  checks; recruitment-text models are reserved for recruitment submissions.
+                </p>
               </>
             )}
 

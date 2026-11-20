@@ -1,5 +1,13 @@
 export type Role = 'user' | 'student' | 'staff' | 'admin' | 'owner';
-export type AnalysisType = 'job' | 'message' | 'url' | 'document' | 'monitoring';
+export type AnalysisType = 'job' | 'message' | 'url' | 'document' | 'monitoring' | 'offer';
+export type OfferCategory =
+  | 'advertisement'
+  | 'giveaway'
+  | 'scholarship'
+  | 'investment'
+  | 'recruitment'
+  | 'promotion'
+  | 'other';
 export type AnalysisStatus = 'pending' | 'completed' | 'failed';
 export type EvidenceStatus =
   | 'confirmed_malicious'
@@ -104,9 +112,20 @@ export interface RiskAssessment {
   evidence_summary?: string[];
   recommended_actions?: string[];
   confidence: number;
+  uncertainty: number;
   data_coverage: number;
   weights_version: string;
+  signal_weights: Record<string, number>;
+  unavailable_signals: string[];
   component_scores?: Record<string, number>;
+}
+
+export interface EvidenceSource {
+  name: string;
+  status: string;
+  attempted_at: string;
+  observed_at: string;
+  detail?: string | null;
 }
 
 export interface EvidenceIndicator {
@@ -121,11 +140,13 @@ export interface EvidenceIndicator {
   independently_verified?: boolean;
   expires_at?: string | null;
   weight?: number;
+  signal_category?: 'content' | 'url' | 'brand' | 'threat' | 'community' | 'coverage';
 }
 
 export interface AnalysisResult {
   id: string;
   analysis_type: AnalysisType;
+  offer_category?: OfferCategory | string | null;
   status: AnalysisStatus;
   user_id: string;
   created_at: string;
@@ -137,7 +158,13 @@ export interface AnalysisResult {
   company_intelligence: Record<string, unknown>;
   message_intelligence: Record<string, unknown>;
   historical_intelligence: Record<string, unknown>;
+  brand_intelligence?: Record<string, unknown>;
+  threat_intelligence?: Record<string, unknown>;
+  image_intelligence?: Record<string, unknown>;
+  community_intelligence?: Record<string, unknown>;
   indicators: EvidenceIndicator[];
+  evidence_sources: EvidenceSource[];
+  evidence_collected_at?: string | null;
   missing_evidence: string[];
   technical_limitations: string[];
   risk: RiskAssessment;
@@ -242,6 +269,16 @@ export interface SubscriptionOut {
   cancel_at_period_end?: boolean;
 }
 
+export type ReportCategory = 'correction' | 'community';
+export type ModerationState = 'pending' | 'verified' | 'corroborated' | 'false_report' | 'dismissed';
+export type CommunityClaimType = 'missed_fraud' | 'impersonation' | 'unauthorized_campaign' | 'other';
+
+export interface ReporterReputation {
+  score: number;
+  basis: Record<string, number>;
+  computed_at: string;
+}
+
 export interface UserReportCreate {
   analysis_id: string;
   report_type: 'false_positive' | 'missed_fraud' | 'identity_correction' | 'other';
@@ -249,11 +286,45 @@ export interface UserReportCreate {
   evidence_url?: string;
 }
 
-export interface UserReportOut extends UserReportCreate {
+export interface CommunityReportCreate {
+  analysis_id: string;
+  claim_type: CommunityClaimType;
+  details: string;
+  evidence_url?: string;
+}
+
+export interface ReportReviewUpdate {
+  status?: 'reviewed' | 'dismissed' | 'actioned';
+  moderation_state?: ModerationState;
+  review_notes?: string;
+  false_report_reason?: string;
+}
+
+export interface UserReportOut {
   id: string;
+  analysis_id: string;
   user_id: string;
+  category: ReportCategory;
+  report_type: string;
+  details: string;
   status: string;
+  moderation_state: ModerationState;
+  entity_key: string;
+  claim_key: string;
+  dedupe_key: string;
+  duplicate_group_key: string;
+  duplicate_of?: string | null;
+  duplicate_count: number;
+  duplicate: boolean;
+  reporter_reputation: ReporterReputation;
+  reviewed_by?: string | null;
+  reviewed_at?: string | null;
+  review_notes?: string | null;
+  is_false_report: boolean;
+  false_report_reason?: string | null;
+  evidence_url?: string | null;
   created_at: string;
+  updated_at?: string | null;
 }
 
 export interface TaskStatusOut {

@@ -280,6 +280,7 @@ class SafeURLFetcher:
             "http_status": None,
             "content_type": None,
             "body_preview": "",
+            "body_text": "",
             "headers_subset": {},
             "certificate": None,
             "limitations": [],
@@ -318,7 +319,7 @@ class SafeURLFetcher:
                         headers={
                             "Host": host_header,
                             "Accept": "text/html, text/plain, application/json;q=0.9",
-                            "User-Agent": "HireShieldAI-SafetyScanner/1.0 (+text-only)",
+                            "User-Agent": "TrustLensAI-SafetyScanner/1.0 (+text-only)",
                             "Connection": "close",
                         },
                     )
@@ -356,6 +357,7 @@ class SafeURLFetcher:
                         "http_status": http_status,
                         "content_type": content_type,
                         "body_preview": "",
+                        "body_text": "",
                         "headers_subset": subset,
                         "certificate": certificate,
                         "limitations": [],
@@ -384,7 +386,11 @@ class SafeURLFetcher:
                             f"Response body truncated at the {self.max_bytes} byte safety limit."
                         )
                     result["truncated"] = truncated
-                    result["body_preview"] = self._decode(body, content_type)[:6000]
+                    decoded = self._decode(body, content_type)
+                    result["body_preview"] = decoded[:6000]
+                    # Kept for structured, size-capped consumers such as feed
+                    # imports. Analysis reports only ever expose body_preview.
+                    result["body_text"] = decoded
                     result["bytes_read"] = len(body)
                     result["observed_at"] = iso()
                     return result

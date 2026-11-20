@@ -1,4 +1,4 @@
-"""Train, evaluate and publish HireShield AI fraud-detection artifacts.
+"""Train, evaluate and publish TrustLens AI fraud-detection artifacts.
 
 Data flow
 ---------
@@ -371,7 +371,6 @@ def _fit_iforest(
         test_scores,
         threshold=threshold,
     )
-    labels = train["label"].to_numpy()
     correlations = []
     for index in range(train_x.shape[1]):
         column = train_x[:, index]
@@ -670,7 +669,7 @@ def train_all(data_dir: str, model_dir: str, repos: Any = None) -> dict[str, Any
         iforest_metrics, provenance, min_auc=0.60, min_recall=0.20, max_fnr=0.85
     )
     if iforest_reasons:
-        notes.append(f"anomaly_iforest not approved: " + "; ".join(iforest_reasons))
+        notes.append("anomaly_iforest not approved: " + "; ".join(iforest_reasons))
     trained.append((_FAMILY_IFOREST, iforest_payload, iforest_metrics, "sklearn.IsolationForest", provenance, iforest_reasons))
 
     supervised_payload, supervised_metrics, implementation = _fit_supervised_anomaly(

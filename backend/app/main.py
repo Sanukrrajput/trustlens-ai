@@ -1,14 +1,16 @@
-"""HireShield AI API application entrypoint."""
+"""TrustLens AI API application entrypoint."""
 
 from __future__ import annotations
 
 import logging
 import os
+import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Any, AsyncIterator
+from uuid import uuid4
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
@@ -27,11 +29,12 @@ from app.api.routes import (
     reports,
     support,
     system,
+    threat,
 )
 from app.billing.payments import PaymentConfigurationError
 from app.core.config import get_settings
 from app.core.logging_conf import configure_logging
-from app.core.security import decode_token, hash_password, utcnow, verify_password
+from app.core.security import decode_token, hash_password, utcnow
 from app.db.mongo import MongoDBService
 from app.db.repositories import Repositories
 from app.services.notification_service import NotificationService
@@ -62,8 +65,8 @@ def _seed_accounts(settings: Any, repos: Repositories) -> None:
     if not settings.seed_demo_data:
         return
     accounts = [
-        (settings.demo_email, settings.demo_password, "user", "Demo User", "HireShield Demo"),
-        (settings.admin_email, settings.admin_password, "admin", "Platform Admin", "HireShield"),
+        (settings.demo_email, settings.demo_password, "user", "Demo User", "TrustLens Demo"),
+        (settings.admin_email, settings.admin_password, "admin", "Platform Admin", "TrustLens"),
     ]
     for email, password, role, full_name, organisation in accounts:
         existing = repos.users.get_by_email(email)
@@ -102,9 +105,18 @@ def _seed_accounts(settings: Any, repos: Repositories) -> None:
                 "evidence_summary": ["Synthetic fee demand", "Sensitive data request via messaging app"],
                 "recommended_actions": ["Do not pay any fee", "Verify the employer through an official channel"],
                 "confidence": 0.9,
+                "uncertainty": 0.1,
                 "data_coverage": 0.4,
-                "weights_version": "demo-v1",
-                "component_scores": {"rules": 0.8, "message": 0.7},
+                "weights_version": "demo-seed-v2",
+                "signal_weights": {
+                    "content": 0.3,
+                    "url": 0.25,
+                    "brand": 0.25,
+                    "threat": 0.1,
+                    "community": 0.1,
+                },
+                "unavailable_signals": ["url", "brand", "threat", "community"],
+                "component_scores": {"content": 0.8, "url": 0.0, "brand": 0.0, "threat": 0.0, "community": 0.7},
             },
             "analysis_type": "message",
             "extracted": {"payment_demands": ["processing fee"], "sensitive_data_requests": ["Aadhaar scan"]},
@@ -118,8 +130,20 @@ def _seed_accounts(settings: Any, repos: Repositories) -> None:
                     "observed_at": utcnow(),
                     "confidence": 1.0,
                     "independently_verified": False,
+                    "signal_category": "content",
                 }
             ],
+            "evidence_sources": [
+                {
+                    "name": "synthetic_demo_seed",
+                    "status": "succeeded",
+                    "attempted_at": utcnow(),
+                    "observed_at": utcnow(),
+                    "detail": "Synthetic demonstration data; no live source was queried.",
+                }
+            ],
+            "evidence_collected_at": utcnow(),
+            "missing_evidence": ["Independent verification was not performed in this synthetic example."],
         },
         {
             "input_preview": "[DEMO DATA - SYNTHETIC EXAMPLE] Well-formed job advertisement from an established employer with an official application portal.",
@@ -131,13 +155,25 @@ def _seed_accounts(settings: Any, repos: Repositories) -> None:
                 "evidence_summary": [],
                 "recommended_actions": ["Still verify the vacancy on the employer's official careers page"],
                 "confidence": 0.35,
+                "uncertainty": 0.65,
                 "data_coverage": 0.2,
-                "weights_version": "demo-v1",
-                "component_scores": {"rules": 0.1},
+                "weights_version": "demo-seed-v2",
+                "signal_weights": {
+                    "content": 0.3,
+                    "url": 0.25,
+                    "brand": 0.25,
+                    "threat": 0.1,
+                    "community": 0.1,
+                },
+                "unavailable_signals": ["url", "brand", "threat", "community"],
+                "component_scores": {"content": 0.1, "url": 0.0, "brand": 0.0, "threat": 0.0, "community": 0.0},
             },
             "analysis_type": "job",
             "extracted": {},
             "indicators": [],
+            "evidence_sources": [],
+            "evidence_collected_at": utcnow(),
+            "missing_evidence": ["Independent verification was not performed in this synthetic example."],
         },
     ]
     for index, sample in enumerate(samples, start=1):
@@ -202,7 +238,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         logger.warning("demo account seeding failed: %s", exc)
 
     logger.info(
-        "HireShield AI started environment=%s in_memory_fallback=%s pid=%s",
+        "TrustLens AI started environment=%s in_memory_fallback=%s pid=%s",
         settings.environment,
         in_memory_fallback,
         os.getpid(),
@@ -211,7 +247,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         yield
     finally:
         mongo.close()
-        logger.info("HireShield AI stopped")
+        logger.info("TrustLens AI stopped")
 
 
 class HealthCheckTrustedHostMiddleware(TrustedHostMiddleware):
@@ -230,7 +266,7 @@ class HealthCheckTrustedHostMiddleware(TrustedHostMiddleware):
 
 
 app = FastAPI(
-    title="HireShield AI API",
+    title="TrustLens AI API",
     version=VERSION,
     description=(
         "Explainable recruitment-fraud detection: ML predictions, consent-gated intelligence, "
@@ -252,34 +288,71 @@ app.add_middleware(
     allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "X-Requested-With"],
+    allow_headers=["Authorization", "Content-Type", "X-Requested-With", "X-Request-ID"],
+    expose_headers=["X-Request-ID"],
 )
 
 
 @app.middleware("http")
 async def security_and_usage_middleware(request: Request, call_next):  # type: ignore[no-untyped-def]
-    response = await call_next(request)
-    response.headers.setdefault("X-Content-Type-Options", "nosniff")
-    response.headers.setdefault("X-Frame-Options", "DENY")
-    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
-    response.headers.setdefault("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
-    response.headers.setdefault("Cross-Origin-Opener-Policy", "same-origin")
-    response.headers.setdefault("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'; base-uri 'none'")
-    if settings.environment.lower() in {"production", "prod"}:
-        response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+    # Accept a caller-supplied correlation id only when it is a short, opaque
+    # token. Otherwise generate one; never trust arbitrary header content.
+    supplied = request.headers.get("x-request-id", "")
+    request_id = supplied if supplied.isalnum() and 8 <= len(supplied) <= 64 else uuid4().hex
+    request.state.request_id = request_id
+    started = time.monotonic()
+    response = None
+    try:
+        response = await call_next(request)
+        return response
+    except Exception:
+        logger.exception(
+            "request failed method=%s path=%s",
+            request.method,
+            request.url.path,
+            extra={"ctx_request_id": request_id},
+        )
+        raise
+    finally:
+        if response is not None:
+            response.headers.setdefault("X-Request-ID", request_id)
+            response.headers.setdefault("X-Content-Type-Options", "nosniff")
+            response.headers.setdefault("X-Frame-Options", "DENY")
+            response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+            response.headers.setdefault("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
+            response.headers.setdefault("Cross-Origin-Opener-Policy", "same-origin")
+            response.headers.setdefault("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'; base-uri 'none'")
+            if settings.environment.lower() in {"production", "prod"}:
+                response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 
-    if request.url.path.startswith("/api/") and request.url.path != "/api/v1/auth/refresh":
-        authorization = request.headers.get("authorization", "")
-        if authorization.lower().startswith("bearer "):
-            try:
-                claims = decode_token(settings, authorization.split(" ", 1)[1], expected_type="access")
-                repos = getattr(request.app.state, "repos", None)
-                if repos is not None:
-                    bucket = datetime.now(timezone.utc).strftime("%Y%m%d%H")
-                    repos.api_usage.increment(str(claims.get("sub")), bucket)
-            except ValueError:
-                pass
-    return response
+            duration_ms = round((time.monotonic() - started) * 1000, 2)
+            context = {
+                "ctx_request_id": request_id,
+                "ctx_method": request.method,
+                "ctx_path": request.url.path,
+                "ctx_status": response.status_code,
+                "ctx_duration_ms": duration_ms,
+            }
+            logger.info(
+                "request completed method=%s path=%s status=%s duration_ms=%s",
+                request.method,
+                request.url.path,
+                response.status_code,
+                duration_ms,
+                extra=context,
+            )
+
+            if request.url.path.startswith("/api/") and request.url.path != "/api/v1/auth/refresh":
+                authorization = request.headers.get("authorization", "")
+                if authorization.lower().startswith("bearer "):
+                    try:
+                        claims = decode_token(settings, authorization.split(" ", 1)[1], expected_type="access")
+                        repos = getattr(request.app.state, "repos", None)
+                        if repos is not None:
+                            bucket = datetime.now(timezone.utc).strftime("%Y%m%d%H")
+                            repos.api_usage.increment(str(claims.get("sub")), bucket)
+                    except ValueError:
+                        pass
 
 
 @app.exception_handler(RequestValidationError)
@@ -298,27 +371,36 @@ async def payment_config_exception_handler(request: Request, exc: PaymentConfigu
 
 @app.exception_handler(PyMongoError)
 async def database_exception_handler(request: Request, exc: PyMongoError) -> JSONResponse:
-    logger.error("database error path=%s error=%s", request.url.path, exc)
+    logger.error(
+        "database error path=%s error=%s",
+        request.url.path,
+        exc,
+        extra={"ctx_request_id": getattr(request.state, "request_id", "")},
+    )
     return JSONResponse(status_code=503, content={"detail": "database temporarily unavailable"})
 
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-    logger.exception("unhandled error path=%s", request.url.path)
+    logger.exception(
+        "unhandled error path=%s",
+        request.url.path,
+        extra={"ctx_request_id": getattr(request.state, "request_id", "")},
+    )
     return JSONResponse(status_code=500, content={"detail": "internal server error"})
 
 
 API_PREFIX = "/api/v1"
 for router in (auth.router, analysis.router, company.router, monitoring.router, reports.router):
     app.include_router(router, prefix=API_PREFIX)
-for router in (notifications.router, billing.router, admin.router, support.router, system.router):
+for router in (notifications.router, billing.router, admin.router, support.router, system.router, threat.router):
     app.include_router(router, prefix=API_PREFIX)
 
 
 @app.get("/", tags=["system"])
 def root() -> dict[str, Any]:
     return {
-        "service": "HireShield AI",
+        "service": "TrustLens AI",
         "version": VERSION,
         "docs": "/docs" if settings.environment.lower() != "production" else None,
         "api": API_PREFIX,

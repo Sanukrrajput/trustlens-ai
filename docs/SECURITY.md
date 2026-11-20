@@ -1,4 +1,4 @@
-# HireShield AI — Security Documentation
+# TrustLens AI — Security Documentation
 
 This document describes the security posture that is actually implemented in this repository. It is based on code and configuration inspection, not on a live deployment assessment. A local root `.env` exists with Razorpay **test** keys, a generated webhook secret and `PAYMENT_CURRENCY=INR`; it must never be committed. `.env.example`, `frontend/.env.example` and the unused `legacy-threat-intel/.env.backup` are templates/archives. No external intelligence or SMTP/SMS credentials are configured, and no live payment keys exist.
 
@@ -38,7 +38,7 @@ This document describes the security posture that is actually implemented in thi
 | Tokens | HS256 JWTs with `sub`, `type`, `iat`, `exp` and `jti`; distinct `access`, `refresh`, `verify_email` and `password_reset` types; `decode_token()` enforces expected type. | `backend/app/core/security.py`, `backend/app/api/routes/auth.py` |
 | Token revocation | Logout inserts the access-token `jti` into a blacklist checked by `get_current_user()`. | `backend/app/api/routes/auth.py`, `backend/app/api/deps.py` |
 | Authorization | Role hierarchy `user`/`student` < `staff` < `admin` < `owner`; `require_admin` on admin, report-review and system-task routes. | `backend/app/core/security.py`, `backend/app/api/deps.py`, `backend/app/api/routes/admin.py`, `backend/app/api/routes/reports.py`, `backend/app/api/routes/system.py` |
-| Rate limiting | In-process sliding-window limiter applied to register, login, forgot-password and analysis submission routes. | `backend/app/core/security.py`, `backend/app/api/deps.py`, `backend/app/api/routes/auth.py`, `backend/app/api/routes/analysis.py` |
+| Configurable rate limiting | In-process sliding-window limiter applied to register, login, forgot-password, analysis and support-chat routes. `RATE_LIMIT_PER_MINUTE` and `RATE_LIMIT_WINDOW_SECONDS` control the policy; rejected requests receive `429` with `Retry-After` and a structured `ctx_request_id` log. It is still per-process, not shared between replicas. | `backend/app/core/security.py`, `backend/app/api/deps.py`, `backend/app/api/routes/auth.py`, `backend/app/api/routes/analysis.py`, `backend/app/api/routes/support.py`, `.env.example` |
 | Login verification | Cloudflare Turnstile `siteverify` is called server-side when both keys are configured; missing/invalid/unavailable tokens deny login. Without keys the endpoint reports `not_configured`; no challenge is simulated. The site key is public; the secret is masked in admin config. | `backend/app/services/turnstile_service.py`, `backend/app/core/config.py`, `backend/app/api/routes/auth.py`, `frontend/src/components/Turnstile.tsx` |
 | Remembered sign-ins | Successful sign-ins are persisted with device label, masked IP and Cloudflare country header; only a keyed hash of a random browser id is stored. Unrecognised devices raise a notification and optional email. Activity is owner-only. | `backend/app/services/login_security.py`, `backend/app/db/repositories.py`, `backend/app/api/routes/auth.py`, `frontend/src/pages/SettingsPage.tsx` |
 | Upload validation | Non-empty, max `MAX_UPLOAD_MB` (default 10), declared MIME allowlist, magic-byte checks, WebP `RIFF`/`WEBP` verification, filename sanitisation. | `backend/app/core/security.py`, `backend/app/api/routes/analysis.py` |
@@ -54,7 +54,12 @@ This document describes the security posture that is actually implemented in thi
 | Production documentation | `/docs` and `/openapi.json` are disabled when environment is production. | `backend/app/main.py` |
 | Datastore fail-closed | MongoDB failure falls back to `mongomock` only outside production; production re-raises and startup fails. | `backend/app/main.py` |
 | Error hygiene | Validation errors return structured `422`; database errors return generic `503`; unhandled errors return generic `500` and are logged server-side. | `backend/app/main.py` |
-| Audit trail | Selected security-relevant events are logged: registration, login/logout, email/password reset, admin changes, billing/checkout/webhook, monitoring and company verification. | `backend/app/api/routes/auth.py`, `backend/app/api/routes/admin.py`, `backend/app/api/routes/billing.py`, `backend/app/api/routes/company.py`, `backend/app/api/routes/monitoring.py` |
+| Audit trail | Selected security-relevant events are logged: registration, login/logout, email/password reset, admin changes, billing/checkout/webhook, monitoring, company verification, moderation and retention enforcement. | `backend/app/api/routes/auth.py`, `backend/app/api/routes/admin.py`, `backend/app/api/routes/billing.py`, `backend/app/api/routes/company.py`, `backend/app/api/routes/monitoring.py`, `backend/app/services/retention_service.py` |
+| Request correlation | `X-Request-ID` is generated (or accepted only as a 8–64 character alphanumeric token), echoed on every response, exposed to CORS, and copied into structured `ctx_*` fields on request logs and error logs. Security headers are applied in a `finally` block so errors do not bypass them. | `backend/app/main.py`, `backend/app/core/logging_conf.py` |
+| Retention enforcement | `RETENTION_DAYS` and `AUDIT_RETENTION_DAYS` drive real deletions, with shorter caps for notifications (180 days), support chats (30), domain cache (30) and task status (7). A nightly Celery task and an admin-only trigger run the same service; each run writes an audit event. | `backend/app/services/retention_service.py`, `backend/app/workers/tasks.py`, `backend/app/workers/celery_app.py`, `backend/app/api/routes/system.py`, `docs/RETENTION.md` |
+| Backup/restore drill | JSONL logical backups include per-collection SHA-256 manifests; `verify` checks hashes and counts; `restore` refuses without `--confirm`. Backups are gitignored and contain personal data, so operator-side encryption and permissions are required. | `scripts/backup_tool.py`, `.gitignore`, `docs/DEPLOYMENT.md` |
+| Secret hygiene | `scripts/secret_scan.py` runs in CI as a blocking check over tracked files, rejecting tracked `.env`/backup files and common credential patterns. | `scripts/secret_scan.py`, `.github/workflows/ci.yml` |
+| Dependency auditing | CI installs `pip-audit` and runs `npm audit --omit=dev --audit-level=high`, uploading JSON reports as artifacts. `pip check` and `npm ls --omit=dev` are also enforced. Dependabot opens weekly pip/npm and monthly Actions updates. | `.github/workflows/ci.yml`, `.github/dependabot.yml` |
 
 ## Secret management
 
@@ -89,7 +94,7 @@ This document describes the security posture that is actually implemented in thi
 - In the general analysis flow, `AnalysisService` currently passes `consent_registry` from `payload.get("consent_registry")`, which is not a field in the checked-in analysis schemas. The separate `/company/verify` route is therefore the reliable path for explicit registry consent today.
 - Analysis records store a redacted `input_preview` and an `input_sha256`, not the full submitted text in the result document. Extracted entities, rule indicators, model outputs and external body previews are persisted.
 - `contact_fingerprint()` produces a SHA-256 pseudonymous fingerprint for company/contact correlation; it is not reversible but is still personal data when derived from identifiable input.
-- `RETENTION_DAYS` and `AUDIT_RETENTION_DAYS` are configured (`365` and `730` by default), but no automated deletion/purge job was found in this review. Do not assume retention is enforced without an operator process.
+- `RETENTION_DAYS` and `AUDIT_RETENTION_DAYS` are now enforced (`365` and `730` by default) by the scheduled/admin-triggered purge described in [RETENTION.md](RETENTION.md). Documents lacking the policy timestamp field are not deleted, and MongoDB TTL indexes remain a separate asynchronous safety net. Self-service export/deletion is still absent.
 - Google Safe Browsing v4 is documented in source as non-commercial. Commercial deployments should use Google Web Risk and confirm licensing.
 - MCA has no official public API in this integration; registry verification requires a licensed/bulk provider configured through `MCA_API_URL` and `MCA_API_KEY`.
 
@@ -107,11 +112,12 @@ This document describes the security posture that is actually implemented in thi
 - [ ] Confirm commercial licensing before enabling Google Safe Browsing; use Web Risk or another licensed source for commercial use.
 - [ ] Use a licensed corporate registry provider for MCA data and keep separate registry consent enabled.
 - [ ] Configure Razorpay/Stripe secrets and webhook URLs in the provider dashboard; test invalid and replayed webhook rejection.
-- [ ] Add a shared, distributed rate limiter at the proxy or gateway; the built-in limiter is per-process.
+- [ ] Add a shared, distributed rate limiter at the proxy or gateway; the built-in configurable limiter is per-process.
 - [ ] Add outbound egress allowlisting/firewalling for the API and worker containers.
 - [ ] Add antivirus/CDR scanning for uploads if user documents are accepted in production.
-- [ ] Add centralized logging, alerting and retention for auth failures, `429`s, `5xx`s, webhook rejections and database failures.
-- [ ] Back up MongoDB volumes before upgrades and test restore. No backup script is included.
+- [ ] Feed `X-Request-ID` and the `ctx_*` JSON log fields into centralized logging/alerting for auth failures, `429`s, `5xx`s, webhook rejections and database failures.
+- [ ] Set `RETENTION_ENABLED=true`, review [RETENTION.md](RETENTION.md) against the legally approved schedule, and confirm the nightly beat task is running.
+- [ ] Back up MongoDB with `scripts/backup_tool.py` (or the documented volume snapshots) before upgrades, verify the manifest, and perform a restore drill into a scratch database.
 - [ ] Verify `/docs` and `/openapi.json` return `404` in production.
 - [ ] Restrict admin routes at the proxy as defence in depth, even though `require_admin` is implemented.
 - [ ] Review model manifest approvals before deploying a retrained image; model files are baked into the backend image.
@@ -147,13 +153,29 @@ These are operator notes, not an automated playbook.
    - Record root cause, affected data, detection gap and follow-up actions.
    - Apply organizational breach-notification and privacy policies; this repository does not implement notification automation.
 
+## Stage 8 verification evidence (20 November 2026)
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Backend tests | `.\.venv\Scripts\python.exe -m pytest backend/tests -q --tb=line` | **111 passed** (deprecation-warning noise only) |
+| Frontend tests | `npm run test -- --run` in `frontend/` | **29 passed** across 7 files |
+| Frontend build | `npm run build` | **Passed** (`tsc --noEmit && vite build`) |
+| Extension contract | `npm test` in `browser-extension/` | **6 passed** |
+| Lint / compile / config | `ruff check backend/app backend/tests backend/scripts scripts`, `compileall`, `docker compose config --quiet` | **Passed** |
+| Secret hygiene | `python scripts/secret_scan.py` | `status: ok`, 269 tracked files scanned, no findings, no tracked `.env` or backups |
+| Dependency consistency | `python -m pip check`, `npm ls --omit=dev` | **Passed** (no broken requirements; valid production tree) |
+| Python dependency audit | `python -m pip_audit --requirement backend/requirements.txt --format json` | **3 findings in 2 packages** (below); CI job is report-only and uploads JSON |
+| JavaScript dependency audit | `npm audit --omit=dev --audit-level=high --json` in `frontend/` | Exit **0**: 0 high/critical, 2 moderate React Router advisories, 49 production dependencies |
+
+Open Python advisories: `python-jose==3.5.0` (`PYSEC-2026-4298` / `CVE-2026-85394`) and its transitive `ecdsa==0.19.2` (`PYSEC-2026-1325` / `CVE-2024-23342`, reported twice). `pip-audit` reports no fixed versions. Mitigations already in place: `decode_token()` pins `algorithms=[settings.jwt_algorithm]` (HS256 with a symmetric secret by default), so the unauthenticated-algorithm and DER-public-key confusion path is not reachable through this application; the ecdsa Minerva issue affects signing/key generation/ECDH, while this service neither signs ECDSA tokens nor exposes an ECDSA verification path. The moderate npm advisories affect `react-router`/`react-router-dom` 6.x (open redirect via backslash and SSR hydration constructor injection); the app is a client-only SPA without SSR hydration, and remediation requires a semver-major upgrade to 7.x. These are documented as open risks, not simulated or suppressed.
+
 ## Current limitations
 
 - The local `.env` contains only Razorpay test billing variables; `.env.example` leaves all integrations empty, so every other provider is unavailable by default. The generated webhook secret is not yet registered in the Razorpay dashboard.
 - Redis was unreachable locally; a local MongoDB listener answered `ping`, but there is no evidence of authentication, backup or production provisioning. Local development can use the `mongomock` fallback and eager/in-memory Celery; production fails closed instead.
 - No TLS-terminating proxy, WAF, antivirus scanner, distributed rate limiter or SIEM is included.
 - Compose does not enable MongoDB or Redis authentication, TLS or a separate reverse proxy.
-- The in-process rate limiter is fixed at `120` in `backend/app/api/deps.py`; `RATE_LIMIT_PER_MINUTE` in settings is not wired into it. It is not shared across API workers.
+- The in-process rate limiter is now configurable but remains per-process; multiple API replicas do not share counters. A reverse-proxy/gateway limiter is still required for production.
 - Logout blacklists only the access-token `jti`; refresh tokens are not blacklisted or versioned.
 - Admin role assignment is powerful and not gated by a second approver.
 - The audit trail covers selected events only, is stored in MongoDB, and is not tamper-evident or exported.
@@ -164,7 +186,8 @@ These are operator notes, not an automated playbook.
 - External intelligence is only as reliable as its source. Unconfigured providers report `not_configured`, and registry absence does not prove a company does not exist.
 - Billing has Razorpay **test** credentials in the local (uncommitted) `.env`; Stripe remains unconfigured and returns `503 not configured`. A generated webhook secret exists but is not yet registered in the Razorpay dashboard, so no live signed activation has been exercised. Never treat test keys as production credentials.
 - SMTP/SMS settings are empty, so high-risk notifications are not delivered in the default configuration.
-- Retention settings exist but no automated purge job was found.
+- Retention is enforced for documents that carry the policy timestamp field; documents lacking that field are intentionally left alone, so collection-specific review is still needed.
+- `pip-audit` reports advisories in `python-jose`/`ecdsa` with no published fix versions; npm reports two moderate React Router advisories. See the verification evidence above for mitigations and upgrade path.
 - There is no evidence of a penetration test, formal security certification, or completed privacy/legal review in this repository.
 - HSTS is emitted as a response header in production, but the shipped nginx service serves plain HTTP; TLS remains an operator responsibility.
 - The restrictive `Content-Security-Policy` is emitted by the API middleware; any richer browser UI served from the API origin must be reviewed against it.

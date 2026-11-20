@@ -1,8 +1,8 @@
 # Razorpay setup for plans and billing
 
-This guide configures Razorpay for the HireShield AI plan catalogue, browser checkout and signed webhook activation. It does not require any source-code changes: all behaviour is driven by environment variables and the admin-editable `plans` collection.
+This guide configures Razorpay for the TrustLens AI plan catalogue, browser checkout and signed webhook activation. It does not require any source-code changes: all behaviour is driven by environment variables and the admin-editable `plans` collection.
 
-> **PAN / KYC note:** PAN, GST, bank settlement and merchant KYC details are configured in your Razorpay dashboard, not in this application. HireShield never accepts or stores card numbers, CVV, bank details or PAN. If you meant Razorpay merchant PAN verification, complete it in Razorpay → Settings → Account & KYC before going live.
+> **PAN / KYC note:** PAN, GST, bank settlement and merchant KYC details are configured in your Razorpay dashboard, not in this application. TrustLens never accepts or stores card numbers, CVV, bank details or PAN. If you meant Razorpay merchant PAN verification, complete it in Razorpay → Settings → Account & KYC before going live.
 
 ## Current local status (this workspace)
 

@@ -1,10 +1,10 @@
-# HireShield AI — Architecture
+# TrustLens AI — Architecture
 
 This document describes the implemented system only. Evidence is drawn from the running source under `backend/app/`, `frontend/src/`, `docker-compose.yml`, and `frontend/nginx.conf`. The legacy `legacy-threat-intel/` directory is out of scope and was not modified.
 
 ## 1. Product shape
 
-HireShield AI is a recruitment-fraud investigation SaaS: users submit job postings, messages, URLs or documents; the platform combines local ML, rules, consented external intelligence and historical patterns into an explainable risk assessment, persists evidence, and produces reports and alerts. Administration, subscriptions and scheduled monitoring are first-class parts of the same API.
+TrustLens AI is a recruitment-fraud investigation SaaS: users submit job postings, messages, URLs or documents; the platform combines local ML, rules, consented external intelligence and historical patterns into an explainable risk assessment, persists evidence, and produces reports and alerts. Administration, subscriptions and scheduled monitoring are first-class parts of the same API.
 
 | Concern | Implementation | Primary source |
 | --- | --- | --- |
@@ -13,7 +13,7 @@ HireShield AI is a recruitment-fraud investigation SaaS: users submit job postin
 | Automation | Celery workers + beat, Redis broker/result backend | `backend/app/workers/celery_app.py`, `backend/app/workers/tasks.py` |
 | ML | Approved job-text artifacts; honest rule-based fallbacks for message/anomaly where models are rejected | `backend/app/ml/inference/predictor.py`, `backend/models/model_manifest.json` |
 | Intelligence | Consent-gated RDAP/DNS/TLS, optional threat feeds, registry, SSRF-safe fetch | `backend/app/intelligence/` |
-| Risk | Six-component weighted, verification-aware scoring | `backend/app/core/risk_engine.py` |
+| Risk | Five-category weighted, verification-aware scoring (content 30 / URL 25 / brand 25 / threat 10 / community 10) | `backend/app/core/risk_engine.py` |
 | UI | React + TypeScript + Tailwind SPA, routes guarded by role | `frontend/src/App.tsx`, `frontend/src/components/ProtectedRoute.tsx` |
 | Billing | Razorpay/Stripe checkout; browser opens Razorpay Checkout with a server-created order; activation only from signed webhooks | `backend/app/billing/payments.py`, `backend/app/api/routes/billing.py`, `frontend/src/lib/razorpay.ts`, `frontend/src/pages/BillingPage.tsx` |
 | Deployment | Docker Compose: mongodb, redis, api, worker, beat, frontend/nginx | `docker-compose.yml` |
@@ -24,11 +24,11 @@ HireShield AI is a recruitment-fraud investigation SaaS: users submit job postin
 
 ```mermaid
 flowchart LR
-    JS["Job seeker / student"] -->|HTTPS| SPA["HireShield SPA<br/>React + TS + Tailwind"]
+    JS["Job seeker / student"] -->|HTTPS| SPA["TrustLens SPA<br/>React + TS + Tailwind"]
     ADMIN["Platform admin"] -->|HTTPS| SPA
-    SPA -->|"/api/v1 JSON"| API["HireShield API<br/>FastAPI"]
+    SPA -->|"/api/v1 JSON"| API["TrustLens API<br/>FastAPI"]
 
-    API --> MONGO[("MongoDB<br/>hireshield")]
+    API --> MONGO[("MongoDB<br/>trustlens")]
     API --> REDIS[("Redis<br/>broker + results")]
     REDIS --> WORKER["Celery worker"]
     REDIS --> BEAT["Celery beat"]
@@ -137,7 +137,7 @@ Key behaviours verified in `backend/app/services/analysis_service.py`:
 - The stored preview redacts emails, Indian-style phone numbers and URLs; `input_sha256` preserves a hash without storing raw text in the preview.
 - Idempotency uses `(user_id, client_request_id)`; when absent, the service generates an `auto-<uuid>` storage key. `fraud_analyses.uniq_idempotency` is a unique, sparse compound index.
 - Job/document/monitoring text uses the job model; messages use the message model; an anomaly prediction is appended from structured features. Models are only loaded when marked `approved: true`; otherwise named `*_rule_fallback` predictions with explicit limitations are returned (`backend/app/ml/inference/predictor.py`).
-- `score_risk` renormalises weights over *available* components, boosts verified malicious/verified-inconsistency evidence (+25) and confirmed malicious reputation (+28), and marks low coverage `inconclusive = true` rather than treating missing lookups as clean (`backend/app/core/risk_engine.py`).
+- `score_risk` renormalises weights over *available* signal categories, uses the strongest non-overlapping sub-signal inside each category, boosts verified malicious/verified-inconsistency evidence (+25) and confirmed malicious reputation (+28), and marks low coverage `inconclusive = true` rather than treating missing lookups as clean (`backend/app/core/risk_engine.py`). Empty threat/brand/history checks stay in `unavailable_signals`; reports also carry `uncertainty`, `signal_weights` and timestamped `evidence_sources`.
 - Every indicator is written to `risk_indicators` with its `analysis_id`; the result is written back to `fraud_analyses`. On any exception the analysis remains persisted with `status = "failed"` and an error field.
 - Reports are generated on demand: `GET /reports/{id}` returns metadata; `GET /reports/{id}/pdf` streams a generated PDF and caches it as base64 in `reports` (`backend/app/api/routes/reports.py`, `backend/app/utils/reporting.py`).
 
@@ -185,7 +185,7 @@ sequenceDiagram
 
 ```mermaid
 flowchart LR
-    HOST["Operator / CI"] -->|"docker compose up -d"| STACK["hireshield-ai stack"]
+    HOST["Operator / CI"] -->|"docker compose up -d"| STACK["trustlens-ai stack"]
     STACK --> WEB["web :${WEB_PORT:-3000}<br/>frontend/nginx"]
     STACK --> APIP["api :${API_PORT:-8000}<br/>FastAPI"]
     WEB -->|"/api/ -> http://api:8000"| APIP
@@ -213,13 +213,13 @@ Operational notes:
 | --- | --- | --- |
 | Passwords/tokens | Argon2id hashing; HS256 JWTs with `sub`, `type`, `iat`, `exp`, `jti`; 30-minute access / 14-day refresh; logout blacklists `jti` | `backend/app/core/security.py`, `backend/app/api/routes/auth.py` |
 | Authorisation | Role hierarchy and explicit ownership checks for analyses, reports and monitoring tasks; admin-only dashboards/config/task triggers | `backend/app/api/deps.py`, route modules |
-| Rate limiting / usage | In-process sliding window on selected routes; per-user hourly `api_usage` accounting from middleware | `backend/app/api/deps.py`, `backend/app/main.py` |
+| Rate limiting / usage | Configurable in-process sliding window on selected routes with `Retry-After`; per-user hourly `api_usage` accounting and request IDs from middleware | `backend/app/api/deps.py`, `backend/app/main.py` |
 | Uploads | Declared-MIME allowlist, size cap (10 MB), magic-byte checks, sanitised names | `backend/app/core/security.py`, `backend/app/api/routes/analysis.py` |
 | External fetching | SSRF-resistant pinned fetcher; consent gates; approved job sources only | `backend/app/intelligence/url_scanning/safe_fetch.py`, `backend/app/workers/tasks.py` |
 | Auditability | `audit_logs` for registration, login/logout, verification, monitoring, company checks, checkout, webhook and admin changes | `AuditRepository.log` call sites |
 | Secrets | Env-only configuration; `public_dict()` masks configured secrets and `/system/config` exposes only capability booleans | `backend/app/core/config.py`, `backend/app/api/routes/system.py` |
 
-**Verification performed:** backend `pytest backend/tests -q` → 64 passed; frontend `npm test -- --run` → 23 passed across 6 files; `npm run build` → successful. CI also compiles backend sources, trains a model smoke test, validates Compose and builds both images (`.github/workflows/ci.yml`).
+**Verification performed:** backend `pytest backend/tests -q --tb=line` → 111 passed; frontend `npm run test -- --run` → 29 passed across 7 files; browser extension `npm test` → 6 passed; `npm run build`, Ruff, compileall, Compose config and secret scan → successful. CI also checks dependencies, trains a model smoke test, validates Compose and builds both images (`.github/workflows/ci.yml`). This legacy architecture document is superseded by [TRUSTLENS_ARCHITECTURE.md](TRUSTLENS_ARCHITECTURE.md).
 
 ## 9. Documentation map
 

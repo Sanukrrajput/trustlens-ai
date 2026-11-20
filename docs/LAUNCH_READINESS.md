@@ -1,4 +1,4 @@
-# HireShield AI — Launch Readiness
+# TrustLens AI — Launch Readiness
 
 **Evidence date:** 19 November 2026
 **Current decision:** **NO-GO for production launch.** **Conditional GO for local demo, internal evaluation and non-production pilots**, provided outputs are treated as advisory and the demo credentials are never exposed outside a controlled environment.
@@ -17,12 +17,12 @@ This assessment is based only on files in this repository and checks executed in
 | Are external intelligence providers configured? | **No** | All credentialed provider flags are `false`; RDAP/DNS/TLS are on by default without keys. |
 | Is live billing configured? | **No** | Razorpay **test** keys are configured locally: `/system/config` reports `razorpay=true`, `mode=test`, `webhook=true`, and a real test order was created. The generated webhook secret is not yet registered in the Razorpay dashboard, no test purchase → webhook → subscription drill has run, and no live keys exist. See [RAZORPAY_SETUP.md](RAZORPAY_SETUP.md). |
 | Are legal documents approved? | **No** | `docs/LEGAL_DRAFTS.md` is explicitly a non-lawyer draft requiring counsel review. |
-| Are security and operational controls production-grade? | **No** | In-process rate limit, development defaults, no TLS/host allow-list configuration, no retention job, no backup/DR or incident process evidenced. |
+| Are security and operational controls production-grade? | **No** | Rate limiting is configurable but per-process; development defaults and no TLS/host allow-list configuration remain. Stage 8 added enforced retention, request IDs, secret/dependency scanning and a backup/verify/restore tool, but no production DR drill, shared limiter, alerting or incident process is evidenced. |
 | Is there a release history? | **Partial** | Commits through `605d596` exist on `main` and are pushed to GitHub; no tags, protected branch or release notes. |
 
 ### Free Render deployment status (19 November 2026)
 
-- **Live evaluation deployment.** Blueprint `hireshield-ai` (`exs-dbvj2k8n74is739nq3h0`) is synced from `main`; both resources are deployed.
+- **Live evaluation deployment.** Blueprint `trustlens-ai` (`exs-dbvj2k8n74is739nq3h0`) is synced from `main`; both resources are deployed.
 - Free resources: `hireshield-api` (Docker web service, `plan: free`) and `hireshield-web` (static site). No card was required.
 - Redis, workers, beat and all paid plans were removed. `CELERY_ENABLED=false`, `TASK_ALWAYS_EAGER=true` and `SCHEDULER_ENABLED=false`.
 - `/health` is exempted from host allow-list validation so Render's internal health probes receive `200`; all application routes remain host-checked.
@@ -39,7 +39,7 @@ Legend: **PASS** = verified in this workspace; **PARTIAL** = implemented but inc
 | Area | Requirement | Status | Evidence / gap | Required action |
 | --- | --- | --- | --- | --- |
 | Core API | Product endpoints under `/api/v1` | **PASS** | Auth, analysis, company, monitoring, reports, notifications, billing, admin and system routers registered in `app/main.py`. | None for functionality. |
-| Explainability | Score with evidence, coverage, limitations | **PASS** | Six-component risk engine, category bands, `inconclusive` flag, sources attempted/succeeded in results. | Validate interpretation with users. |
+| Explainability | Score with evidence, coverage, limitations | **PASS** | Five-category risk engine, configurable bands, `inconclusive` flag, timestamped `evidence_sources`, `uncertainty`, `signal_weights`, missing information and recommended actions. | Validate interpretation with users. |
 | Backend tests | Automated suite passes | **PASS** | `73 passed` via `pytest backend/tests -q --tb=line`. | Keep in CI on every change. |
 | Frontend tests / build | Tests and production build pass | **PASS** | `27 passed` in 7 files; `npm run build` passes. | Keep in CI on every change. |
 | Compose config | Valid Compose definition | **PASS** | `docker compose config --quiet` passes. | Re-run after any Compose edit. |
@@ -48,7 +48,7 @@ Legend: **PASS** = verified in this workspace; **PARTIAL** = implemented but inc
 | Demo accounts | No predictable accounts in production | **PARTIAL** | Auto-disable triggers with weak defaults, but `SEED_DEMO_DATA=true` is the default and must be explicitly managed. | Set `SEED_DEMO_DATA=false`, rotate/remove demo data before launch. |
 | Hosts / CORS / TLS | Restricted hosts, production origins, TLS | **FAIL** | `ALLOWED_HOSTS=*` default; CORS limited to localhost dev origins; HSTS added only when production; no TLS termination configured in repo. | Set production hosts/origins and terminate TLS at the ingress/reverse proxy. |
 | Rate limiting | Distributed, configurable abuse control | **PARTIAL** | In-process `SlidingWindowRateLimiter(limit=120)` on analysis endpoints; `RATE_LIMIT_PER_MINUTE` setting exists but is not used by the dependency. | Implement shared (Redis-backed) rate limiting and apply to auth/billing where appropriate. |
-| Data retention | Enforced retention and deletion | **FAIL** | `RETENTION_DAYS`/`AUDIT_RETENTION_DAYS` exist in config; no purge job found; no general self-service export/delete endpoints. Support chat logs are the exception: stored in `support_messages` with a 30-day TTL and a session-scoped `DELETE /api/v1/support/chat`, but the privacy draft does not yet disclose this logging. | Implement enforcement and a documented data-subject process, and update the privacy text to cover support chat logs, before processing real user data. |
+| Data retention | Enforced retention and deletion | **PARTIAL** | Stage 8 enforces `RETENTION_DAYS`/`AUDIT_RETENTION_DAYS` via a scheduled/admin-triggered purge and shorter caps for support chats (30 days), notifications (180), domain cache (30) and task status (7). These are engineering defaults, not a legally approved schedule; no general self-service export/delete endpoints exist, and the privacy draft does not disclose support chat logging. | Approve the `[RETENTION SCHEDULE]`, implement a documented data-subject process, and update the privacy text to cover support chat logs before processing real user data. |
 | Legal | Reviewed Terms/Privacy/DPA/AUP/cookies/disclaimers | **FAIL** | Drafts only; jurisdiction and controller placeholders unresolved. | Qualified counsel review and sign-off; publish approved versions. |
 | Billing | Live provider + verified webhooks | **FAIL** | Checkout, order notes, amount checks and signed webhook verification logic are implemented and covered by tests, but the free evaluation deployment leaves Razorpay/Stripe unconfigured and reports billing disabled through `/api/v1/system/config`. No live keys or signed activation drill exist. | Configure a provider and webhook secret intentionally; run the test-mode purchase → webhook → subscription → refund drill via [RAZORPAY_SETUP.md](RAZORPAY_SETUP.md); then obtain live keys. |
 | External intelligence | Commercial reputation and registry sources | **FAIL** | RDAP/DNS/TLS on; VirusTotal/Safe Browsing/Web Risk/MCA unconfigured. Safe Browsing v4 is non-commercial; MCA has no official public API. | License Web Risk and a licensed registry intermediary; configure keys and consent; record quotas/terms. |
