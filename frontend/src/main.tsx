@@ -9,9 +9,13 @@ import './styles.css';
 const rootElement = document.getElementById('root');
 if (!rootElement) throw new Error('Root element not found');
 
+// Vite injects BASE_URL ("/" locally, "/trustlens-ai/" on GitHub Pages).
+// The router must use it so deep links resolve under the deployed subpath.
+const basename = import.meta.env.BASE_URL.replace(/\/$/, '') || '/';
+
 createRoot(rootElement).render(
   <StrictMode>
-    <BrowserRouter>
+    <BrowserRouter basename={basename}>
       <ThemeProvider>
         <ToastProvider>
           <App />

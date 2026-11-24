@@ -26,7 +26,7 @@ export function ArchitectureWidget() {
             </button>
           </div>
           <img
-            src="/architecture-corner.png"
+            src={`${import.meta.env.BASE_URL}architecture-corner.png`}
             alt="Internal architecture illustration"
             className="h-28 w-full bg-black object-contain"
           />
@@ -42,7 +42,7 @@ export function ArchitectureWidget() {
         aria-label="Open internal architecture widget"
       >
         <img
-          src="/architecture-corner.png"
+          src={`${import.meta.env.BASE_URL}architecture-corner.png`}
           alt="Internal architecture illustration"
           className="h-28 w-20 rounded-xl bg-black object-contain"
         />

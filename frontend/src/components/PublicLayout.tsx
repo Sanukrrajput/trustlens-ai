@@ -8,6 +8,7 @@ import { Moon, Sun } from 'lucide-react';
 export function PublicLayout() {
   const [open, setOpen] = useState(false);
   const { theme, toggleTheme } = useTheme();
+  const base = import.meta.env.BASE_URL;
 
   return (
     <div className="flex min-h-screen flex-col bg-bg">
@@ -15,9 +16,9 @@ export function PublicLayout() {
         <div className="mx-auto flex h-16 max-w-7xl items-center gap-6 px-4 sm:px-6 lg:px-8">
           <Logo />
           <nav className="ml-6 hidden items-center gap-6 text-sm font-medium text-muted md:flex">
-            <a className="hover:text-ink" href="/#capabilities">Capabilities</a>
-            <a className="hover:text-ink" href="/#pricing">Pricing</a>
-            <a className="hover:text-ink" href="/#faq">FAQ</a>
+            <a className="hover:text-ink" href={`${base}#capabilities`}>Capabilities</a>
+            <a className="hover:text-ink" href={`${base}#pricing`}>Pricing</a>
+            <a className="hover:text-ink" href={`${base}#faq`}>FAQ</a>
           </nav>
           <div className="ml-auto flex items-center gap-2">
             <button
