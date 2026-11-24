@@ -9,6 +9,20 @@
       content="TrustLens AI — verify online offers, messages, links and screenshots before you act. Evidence-led verification with sources, limitations and next steps."
     />
     <title>TrustLens AI — Verify before you act</title>
+    <script>
+      // GitHub Pages SPA restore: 404.html stores the originally requested path.
+      // Safe on local dev and other hosts because no redirect is stored there.
+      (function () {
+        var redirect = null;
+        try { redirect = sessionStorage.getItem('trustlens:pages-redirect'); } catch (error) { return; }
+        if (!redirect) return;
+        try { sessionStorage.removeItem('trustlens:pages-redirect'); } catch (error) { /* ignore */ }
+        var base = '%BASE_URL%'.replace(/\/$/, '');
+        if (redirect !== location.pathname + location.search) {
+          history.replaceState(null, '', base + redirect);
+        }
+      })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
