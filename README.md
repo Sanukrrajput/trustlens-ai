@@ -99,7 +99,7 @@ docker compose up --build -d
 
 Compose starts MongoDB, Redis, API, Celery worker, Celery Beat and the frontend nginx image. The UI is published on `${WEB_PORT:-3000}` (default <http://localhost:3000>) and the API on `${API_PORT:-8000}`. nginx proxies same-origin `/api/v1` calls to the API service. `VITE_API_URL` is a **build-time** argument (`/api/v1` by default).
 
-See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for environment precedence, production hardening, TLS, backups and upgrade/rollback notes. A **free-plan** Render Blueprint is provided in [`render.yaml`](render.yaml) and is deployed as an evaluation environment. It deploys only a free API web service and a static site; Redis, workers and beat are disabled because Render does not offer them free. Live hosts: <https://hireshield-api-wets.onrender.com> and <https://hireshield-web-j72o.onrender.com>. MongoDB Atlas M0 is the external datastore; its URI exists only as a Render secret. This is **not a production launch**. See [docs/RENDER_DEPLOYMENT.md](docs/RENDER_DEPLOYMENT.md).
+See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for environment precedence, production hardening, TLS, backups and upgrade/rollback notes. A **free-plan** Render Blueprint is provided in [`render.yaml`](render.yaml) and was previously deployed as an evaluation environment. It deploys only a free API web service and a static site; Redis, workers and beat are disabled because Render does not offer them free. Historical hosts (not verified in the latest local run): <https://hireshield-api-wets.onrender.com> and <https://hireshield-web-j72o.onrender.com>. MongoDB Atlas M0 is the external datastore; its URI exists only as a Render secret. This is **not a production launch**. See [docs/RENDER_DEPLOYMENT.md](docs/RENDER_DEPLOYMENT.md).
 
 ---
 
@@ -137,7 +137,7 @@ Production behaviour is deliberately restrictive: `ENVIRONMENT=production` requi
 Verified in this working tree on 20 November 2026:
 
 ```powershell
-# Backend: 111 passed
+# Backend: 115 passed
 .\.venv\Scripts\python.exe -m pytest backend/tests -q --tb=line
 
 # Frontend: 29 passed across 7 files
@@ -164,7 +164,7 @@ cd frontend
 npm audit --json
 ```
 
-All checks above passed. `npm audit --json` and `pip-audit --format json` both report **0 vulnerabilities** after replacing `python-jose` with `PyJWT` and upgrading React Router to 7.x plus the Vite/Vitest toolchain. Both audits are blocking CI checks. Container *image builds* were not verified locally because the Docker daemon was not running; CI runs both builds. Full details are in [docs/TESTING.md](docs/TESTING.md).
+All checks above passed. The final structured E2E evidence was generated at `2026-11-20T08:49:58.788151+00:00` (15 PASS, 1 PARTIAL, 0 FAIL). `npm audit --json` and `pip-audit --format json` both report **0 vulnerabilities** after replacing `python-jose` with `PyJWT` and upgrading React Router to 7.x plus the Vite/Vitest toolchain. Both audits are blocking CI checks. Container *image builds* were not verified locally because the Docker daemon was not running; CI runs both builds. Full details are in [END_TO_END_VERIFICATION.md](END_TO_END_VERIFICATION.md) and [docs/TESTING.md](docs/TESTING.md).
 
 ---
 
@@ -191,10 +191,10 @@ The canonical template is [`.env.example`](.env.example). Empty values mean “n
 
 * **Most external API credentials remain unconfigured.** The free Render evaluation deployment leaves billing, Turnstile, SMTP/SMS and credentialed intelligence providers unconfigured, and `/api/v1/system/config` reports them honestly. Never commit or paste local credential files into chat.
 * **No paid access from the browser.** Checkout initiation is server-side; only signed provider webhooks change subscription state.
-* **Models are limited.** Two English-language, text-only EMSCAD job models are approved; message and anomaly models were rejected and the runtime falls back to explicit rule scorers. See [DEVELOPMENT_STATUS.md](DEVELOPMENT_STATUS.md) for the active manifest and metrics.
+* **Models are limited.** Two EMSCAD job models and two DIFrauD text models (message and job) are approved. DIFrauD models are preferred only when approved and loadable; rejected families and all generic offers use explicit rule fallbacks. DIFrauD is a real-world research corpus, not production-validated TrustLens traffic. See [DEVELOPMENT_STATUS.md](DEVELOPMENT_STATUS.md), [docs/ML.md](docs/ML.md) and the active manifest for metrics and limitations.
 * **Local fallback is not production.** The in-memory store and eager Celery execution are development conveniences. Production fails closed when MongoDB is unavailable.
 * **Not launch-ready.** Legal drafts are unreviewed, no production secrets or **live** payment provider are configured (only Razorpay test keys), container images were not built locally, and there is no penetration test or production deployment evidence. Secret and dependency audits are clean and blocking in CI; details are in [docs/SECURITY.md](docs/SECURITY.md). See [docs/LAUNCH_READINESS.md](docs/LAUNCH_READINESS.md).
-* **Repository state.** The repository is pushed to `origin/main` with a free Render evaluation deployment live. Protected branches, release approvals and a production deployment process are still required before launch.
+* **Repository state.** The TrustLens AI source of truth is <https://github.com/Sanukrrajput/trustlens-ai>. No GitHub Pages deployment is configured. The older HireShield Render hosts above are historical evaluation links and were not verified in the latest local run. Protected branches, release approvals and a production deployment process are still required before launch.
 * **Legacy code.** The previous SOC application is preserved under `legacy-threat-intel/` for reference. It is **not** active code, is not referenced by the running application or Compose files, and should not be described as part of the TrustLens AI product.
 
 ---
