@@ -10,9 +10,10 @@ Data flow
    in job-fraud benchmarks).
 3. Stratify into 60% train / 20% validation / 20% test. Thresholds are chosen on
    validation only; all reported metrics come from the untouched test split.
-4. Train text models (TF-IDF + LogisticRegression and TF-IDF + LinearSVC for jobs;
-   TF-IDF + LogisticRegression for recruitment messages) and anomaly models
-   (IsolationForest plus XGBoost, or RandomForest when XGBoost is unavailable).
+4. Train text models (TF-IDF + LogisticRegression and TF-IDF + LinearSVC for
+   EMSCAD job posts; TF-IDF + LogisticRegression for the optional real-world
+   DIFrauD message and job families) and anomaly models (IsolationForest plus
+   XGBoost, or RandomForest when XGBoost is unavailable).
 5. Reject anything with unusable metrics. Rejected artifacts are still written
    for audit, but are marked ``approved: false`` and are ignored by inference.
 
@@ -41,6 +42,9 @@ from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.svm import LinearSVC
 
+from app.ml.datasets.difraud import JOB_DOMAINS as DIFRAUD_JOB_DOMAINS
+from app.ml.datasets.difraud import MESSAGE_DOMAINS as DIFRAUD_MESSAGE_DOMAINS
+from app.ml.datasets.difraud import difraud_limitations, load_difraud_dataset
 from app.ml.datasets.synthetic_messages import (
     DATASET_PROVENANCE as SYNTHETIC_PROVENANCE,
 )
@@ -63,6 +67,8 @@ MANIFEST_FILENAME = "model_manifest.json"
 _FAMILY_JOB_LOGREG = "job_tfidf_logreg"
 _FAMILY_JOB_SVC = "job_tfidf_linearsvc"
 _FAMILY_MESSAGE = "message_tfidf_logreg"
+_FAMILY_DIFRAUD_JOB = "job_difraud_logreg"
+_FAMILY_DIFRAUD_MESSAGE = "message_difraud_logreg"
 _FAMILY_IFOREST = "anomaly_iforest"
 _FAMILY_SUPERVISED = "anomaly_supervised"
 
@@ -576,15 +582,26 @@ def write_manifest(model_dir: str | Path, entries: list[dict[str, Any]], version
 
 
 # -------------------------------------------------------------------------- main
-def train_all(data_dir: str, model_dir: str, repos: Any = None) -> dict[str, Any]:
+def train_all(
+    data_dir: str,
+    model_dir: str,
+    repos: Any = None,
+    *,
+    difraud_domains: dict[str, tuple[str, ...]] | None = None,
+    include_difraud: bool = True,
+) -> dict[str, Any]:
     """Train all model families and publish approved versions.
 
     Args:
-        data_dir: Directory containing ``raw/emscad_v1.csv``. Relative paths are
-            resolved against the current directory and the backend root.
+        data_dir: Directory containing ``raw/emscad_v1.csv`` and optionally
+            ``datasets/difraud/<domain>/*.jsonl``. Relative paths are resolved
+            against the current directory and the backend root.
         model_dir: Destination for joblib artifacts, JSON metadata and manifest.
         repos: Optional ``Repositories`` instance. Approved models are registered
             through ``repos.models.register(...)`` when supplied.
+        difraud_domains: Optional mapping of family to domain tuples. Defaults to
+            message=(phishing, sms) and job=(job_scams,).
+        include_difraud: Set False to train the legacy families only.
 
     Returns:
         A JSON-serialisable summary including provenance, split sizes, every
@@ -649,9 +666,59 @@ def train_all(data_dir: str, model_dir: str, repos: Any = None) -> dict[str, Any
         )
         notes.append(
             "message_tfidf_logreg not approved: trained only on curated synthetic data; "
-            "runtime uses a transparent rule fallback until real labelled messages are available."
+            "kept for audit while the approved DIFrauD message family is preferred at runtime."
         )
         trained.append((_FAMILY_MESSAGE, msg_payload, msg_metrics, "sklearn.linear_model", dict(SYNTHETIC_PROVENANCE), reasons))
+
+    # DIFrauD: real labelled deception text. Each family uses the benchmark's
+    # own train/validation/test splits, so thresholds are chosen on validation
+    # and metrics come from untouched held-out data. These families are skipped
+    # (with a note) when the optional corpus is not present under data_dir.
+    difraud_families = {
+        _FAMILY_DIFRAUD_MESSAGE: tuple(difraud_domains.get("message", DIFRAUD_MESSAGE_DOMAINS))
+        if difraud_domains
+        else DIFRAUD_MESSAGE_DOMAINS,
+        _FAMILY_DIFRAUD_JOB: tuple(difraud_domains.get("job", DIFRAUD_JOB_DOMAINS))
+        if difraud_domains
+        else DIFRAUD_JOB_DOMAINS,
+    }
+    difraud_provenance: dict[str, Any] | None = None
+    if include_difraud:
+        for family, domains in difraud_families.items():
+            try:
+                loaded = load_difraud_dataset(data_dir, domains)
+            except Exception as exc:  # noqa: BLE001 - optional corpus must not break training
+                note = f"{family} skipped: DIFrauD load failed ({type(exc).__name__}: {exc})."
+                logger.warning(note)
+                notes.append(note)
+                continue
+            if loaded is None:
+                notes.append(
+                    f"{family} skipped: DIFrauD corpus not found under {data_dir}; "
+                    "runtime keeps its current fallback."
+                )
+                continue
+            d_train, d_val, d_test, d_provenance = loaded
+            difraud_provenance = d_provenance
+            family_provenance = dict(d_provenance)
+            family_provenance["model_family_domains"] = list(domains)
+            payload, metrics = _fit_text_model(
+                family=family,
+                train=d_train,
+                validation=d_val,
+                test=d_test,
+                provenance=family_provenance,
+                limitations=difraud_limitations(domains),
+                min_df=2,
+            )
+            approved, reasons = _approval(
+                metrics, family_provenance, min_auc=0.70, min_recall=0.35, max_fnr=0.70
+            )
+            if reasons:
+                notes.append(f"{family} not approved: " + "; ".join(reasons))
+            trained.append(
+                (family, payload, metrics, "sklearn.linear_model", family_provenance, reasons)
+            )
 
     anomaly_limitations = [
         *limitations,
@@ -734,6 +801,7 @@ def train_all(data_dir: str, model_dir: str, repos: Any = None) -> dict[str, Any
         "training_version": version,
         "data": {
             "provenance": provenance,
+            "difraud_provenance": difraud_provenance,
             "rows_after_cleaning": len(frame),
             "split_sizes": {
                 "train": len(train),

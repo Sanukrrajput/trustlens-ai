@@ -4,14 +4,14 @@ This document describes the implemented system only. Evidence is drawn from the 
 
 ## 1. Product shape
 
-TrustLens AI is a recruitment-fraud investigation SaaS: users submit job postings, messages, URLs or documents; the platform combines local ML, rules, consented external intelligence and historical patterns into an explainable risk assessment, persists evidence, and produces reports and alerts. Administration, subscriptions and scheduled monitoring are first-class parts of the same API.
+TrustLens AI is an evidence-led verification service for online offers: users submit an offer, advert, message, URL or document; the platform combines scoped local ML, rules, consented external intelligence and historical patterns into an explainable risk assessment, persists evidence, and produces reports and alerts. Recruitment is one supported category, not the product identity. See [TRUSTLENS_CONCEPT.md](../TRUSTLENS_CONCEPT.md).
 
 | Concern | Implementation | Primary source |
 | --- | --- | --- |
 | API | FastAPI, prefix `/api/v1`; root `/` and `/health` | `backend/app/main.py` |
 | Persistence | MongoDB via `MongoDBService` + repository layer | `backend/app/db/mongo.py`, `backend/app/db/repositories.py` |
 | Automation | Celery workers + beat, Redis broker/result backend | `backend/app/workers/celery_app.py`, `backend/app/workers/tasks.py` |
-| ML | Approved job-text artifacts; honest rule-based fallbacks for message/anomaly where models are rejected | `backend/app/ml/inference/predictor.py`, `backend/models/model_manifest.json` |
+| ML | Approved EMSCAD job models plus optional approved DIFrauD message/job models; rule fallback for generic offers and rejected/unloadable families | `backend/app/ml/inference/predictor.py`, `backend/models/model_manifest.json` |
 | Intelligence | Consent-gated RDAP/DNS/TLS, optional threat feeds, registry, SSRF-safe fetch | `backend/app/intelligence/` |
 | Risk | Five-category weighted, verification-aware scoring (content 30 / URL 25 / brand 25 / threat 10 / community 10) | `backend/app/core/risk_engine.py` |
 | UI | React + TypeScript + Tailwind SPA, routes guarded by role | `frontend/src/App.tsx`, `frontend/src/components/ProtectedRoute.tsx` |

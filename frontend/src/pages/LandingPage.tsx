@@ -30,16 +30,16 @@ import type { PlanOut } from '../types';
 const capabilities = [
   { icon: Fingerprint, title: 'Explainable risk scoring', text: 'Every score is traceable to labelled evidence with severity, weight, confidence and provenance.' },
   { icon: Globe2, title: 'Domain intelligence', text: 'Domain age, hosting and reputation signals are reported with their source and freshness.' },
-  { icon: Building2, title: 'Company verification', text: 'Cross-check employer identity against public and registry sources when you consent to lookups.' },
-  { icon: MailWarning, title: 'Message analysis', text: 'Detect urgency, advance-fee and sensitive-data patterns in recruiter outreach.' },
-  { icon: Radar, title: 'Continuous monitoring', text: 'Track companies, roles and sources over time and receive in-app notifications on changes.' },
+  { icon: Building2, title: 'Brand & entity checks', text: 'Cross-check the claimed brand or organisation against public and registry sources when you consent to lookups.' },
+  { icon: MailWarning, title: 'Message analysis', text: 'Detect urgency, advance-fee, impersonation and sensitive-data patterns across email, SMS, chat and adverts.' },
+  { icon: Radar, title: 'Continuous monitoring', text: 'Track brands, domains, offers and sources over time and receive in-app notifications on changes.' },
   { icon: Ban, title: 'Honest uncertainty', text: 'Inconclusive findings, missing evidence and technical limitations are surfaced explicitly.' },
 ];
 
 const useCases = [
-  { icon: GraduationCap, title: 'Students & graduates', text: 'Check an offer before sharing documents, bank details or paying any fee.' },
-  { icon: Users, title: 'Working professionals', text: 'Validate recruiter outreach and compare multiple opportunities with consistent evidence.' },
-  { icon: Building2, title: 'Universities & career teams', text: 'Protect students with a repeatable verification workflow and shared investigation history.' },
+  { icon: GraduationCap, title: 'Students & graduates', text: 'Check scholarships, offers and recruiter messages before sharing documents, bank details or paying a fee.' },
+  { icon: Users, title: 'Everyday internet users', text: 'Verify giveaways, discounts, investments and messages with the same evidence standard.' },
+  { icon: Building2, title: 'Teams & communities', text: 'Run a repeatable verification workflow and share an auditable investigation history.' },
 ];
 
 function DemoBanner({ className = '' }: { className?: string }) {
@@ -180,13 +180,13 @@ export function LandingPage() {
         <div className="absolute left-1/2 top-[-12rem] h-[32rem] w-[32rem] -translate-x-1/2 rounded-full bg-brand-500/15 blur-3xl" />
         <div className="relative mx-auto grid max-w-7xl gap-12 px-4 py-20 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-start lg:px-8 lg:py-28">
           <div className="animate-fade-up">
-            <Badge tone="brand" dot>Evidence-led job risk intelligence</Badge>
+            <Badge tone="brand" dot>Evidence-led online offer verification</Badge>
             <h1 className="mt-6 text-4xl font-extrabold leading-[1.1] tracking-tight sm:text-5xl lg:text-6xl">
-              Verify Before You Apply.<br />
-              <span className="bg-gradient-to-r from-brand-500 to-cyan-400 bg-clip-text text-transparent">Detect Before You Trust.</span>
+              Verify Before You Act.<br />
+              <span className="bg-gradient-to-r from-brand-500 to-cyan-400 bg-clip-text text-transparent">Decide With Evidence.</span>
             </h1>
             <p className="mt-6 max-w-xl text-base leading-relaxed text-muted sm:text-lg">
-              TrustLens AI turns job posts, recruiter messages, URLs and documents into an explainable risk assessment — with sources, confidence and limitations attached to every finding.
+              TrustLens AI turns online offers, messages, links and screenshots into an explainable evidence report — with sources, confidence, missing information and next steps attached to every finding.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link to="/register" className="btn-primary px-6 py-3 text-base">Start a free investigation <ArrowRight className="h-4 w-4" /></Link>
@@ -270,7 +270,7 @@ export function LandingPage() {
           <div className="relative">
             <FileSearch className="mx-auto h-8 w-8 text-cyan-300" />
             <h2 className="mt-5 text-3xl font-bold">Check the next opportunity before it checks you</h2>
-            <p className="mx-auto mt-3 max-w-xl text-sm text-slate-300">Create a free account and start with a single job post, message or URL.</p>
+            <p className="mx-auto mt-3 max-w-xl text-sm text-slate-300">Create a free account and check one offer, message, link or screenshot.</p>
             <Link to="/register" className="btn-primary mt-7 px-6 py-3 text-base">Get started free <ArrowRight className="h-4 w-4" /></Link>
           </div>
         </div>

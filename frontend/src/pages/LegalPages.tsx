@@ -27,7 +27,7 @@ export function PrivacyPage() {
     <LegalLayout title="Privacy Policy (draft)" updated="18 November 2026">
       <Card title="1. What we process">
         <p className="text-sm leading-relaxed text-muted">
-          We process account details (name, email, organisation), authentication tokens, the content you submit for analysis (job posts, messages, URLs and documents), extracted entities, investigation results, monitoring rules, notifications, billing status and support or correction reports.
+          We process account details (name, email, organisation), authentication tokens, the content you submit for analysis (offers, messages, URLs and documents), extracted entities, investigation results, monitoring rules, notifications, billing status and support or correction reports.
         </p>
       </Card>
       <Card title="2. Why we process it">
@@ -68,7 +68,7 @@ export function TermsPage() {
     <LegalLayout title="Terms of Service (draft)" updated="18 November 2026">
       <Card title="1. Nature of the service">
         <p className="text-sm leading-relaxed text-muted">
-          TrustLens AI provides evidence-led risk intelligence to help you evaluate job opportunities, recruiters, messages and companies. It is a decision-support tool. It is not an employment agency, background-check bureau, legal adviser or fraud insurer.
+          TrustLens AI provides evidence-led risk intelligence to help you evaluate online offers, adverts, messages, links, brands and companies. Recruitment is one supported category, not the limits of the service. It is a decision-support tool. It is not an employment agency, background-check bureau, legal adviser or fraud insurer.
         </p>
       </Card>
       <Card title="2. No guarantee of legitimacy">

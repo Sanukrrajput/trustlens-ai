@@ -10,7 +10,7 @@ const titles: Record<string, string> = {
   '/app': 'Overview',
   '/app/scan': 'New scan',
   '/app/company': 'Company intelligence',
-  '/app/monitoring': 'Job monitoring',
+  '/app/monitoring': 'Offer monitoring',
   '/app/billing': 'Plans & billing',
   '/app/settings': 'Settings',
   '/app/admin': 'Admin console',

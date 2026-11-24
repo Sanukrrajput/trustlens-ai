@@ -59,7 +59,7 @@ export function PublicLayout() {
           <div>
             <Logo />
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-muted">
-              Evidence-led job fraud risk intelligence. We surface signals and confidence — never certainty.
+              Evidence-led verification for online offers, messages, links and documents. We surface signals and confidence — never certainty.
             </p>
           </div>
           <div>
@@ -88,7 +88,7 @@ export function PublicLayout() {
           </div>
         </div>
         <div className="border-t border-line px-4 py-5 text-center text-xs text-muted">
-          © {new Date().getFullYear()} TrustLens AI. This product does not guarantee that any listing, employer or recruiter is legitimate.
+          © {new Date().getFullYear()} TrustLens AI. This product does not guarantee that any offer, message, brand or company is legitimate.
         </div>
       </footer>
     </div>

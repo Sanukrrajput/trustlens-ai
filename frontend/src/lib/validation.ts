@@ -54,7 +54,7 @@ export function validateJob(input: {
 }): FieldErrors {
   const errors: FieldErrors = {};
   const text = input.text.trim();
-  if (text.length < 20) errors.text = 'Paste at least 20 characters of the job description.';
+  if (text.length < 20) errors.text = 'Paste at least 20 characters of the recruitment text.';
   if (text.length > 200_000) errors.text = 'Job text is too long (200,000 character limit).';
   if (input.recruiter_email && validateEmail(input.recruiter_email)) {
     errors.recruiter_email = 'Enter a valid recruiter email.';

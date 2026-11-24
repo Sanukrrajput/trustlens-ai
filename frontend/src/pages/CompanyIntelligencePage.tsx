@@ -66,7 +66,7 @@ export function CompanyIntelligencePage() {
       <SectionHeading
         eyebrow="Entity verification"
         title="Company intelligence"
-        description="Check employer identity and review your past investigations involving a company."
+        description="Check a claimed brand or organisation and review your past investigations involving it."
       />
 
       <div className="grid gap-6 lg:grid-cols-[1fr_1.1fr]">
@@ -145,7 +145,7 @@ export function CompanyIntelligencePage() {
       </Card>
 
       <p className="mt-6 flex items-center gap-2 text-xs text-muted">
-        <ShieldCheck className="h-4 w-4" /> Looking for a specific job post? <Link className="link" to="/app/scan">Run a job scan</Link> to include domain and message intelligence. <ExternalLink className="h-3 w-3" /> Results are timestamped {formatDateTime(new Date().toISOString())}.
+        <ShieldCheck className="h-4 w-4" /> Checking a specific offer or message? <Link className="link" to="/app/scan">Run a verification scan</Link> to include domain, brand and message intelligence. <ExternalLink className="h-3 w-3" /> Results are timestamped {formatDateTime(new Date().toISOString())}.
       </p>
     </div>
   );

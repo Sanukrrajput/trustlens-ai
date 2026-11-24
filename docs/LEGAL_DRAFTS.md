@@ -30,7 +30,7 @@
 **Effective date:** `[EFFECTIVE DATE]` · **Version:** `[VERSION]` · **Governing law:** `[GOVERNING LAW]`
 
 ### 1.1 Nature of the service
-TrustLens AI is a decision-support service that analyses job postings, recruiter messages, URLs, documents and company information and returns risk indicators, explanatory evidence and reports. It is not an employment agency, background-check bureau, credit-reference agency, legal adviser, fraud insurer, or guarantor of the legitimacy of any opportunity or person.
+TrustLens AI is a decision-support service that analyses online offers, adverts, messages, URLs, documents and claimed organisations and returns risk indicators, explanatory evidence and reports. Recruitment is one supported category. It is not an employment agency, background-check bureau, credit-reference agency, legal adviser, fraud insurer, or guarantor of the legitimacy of any opportunity or person.
 
 ### 1.2 Eligibility and accounts
 You must provide accurate account information and be authorised to submit the content you upload. Registration requires affirmative consent to the Privacy Policy and these Terms. You are responsible for credentials and activity under your account. Roles and administrative permissions are controlled by the service; attempting to obtain unauthorised roles is prohibited.
@@ -63,7 +63,7 @@ These terms are governed by `[GOVERNING LAW]`, with exclusive jurisdiction in `[
 Based on current code behaviour:
 
 * **Account data:** name, email, organisation, role, preferences, email-verification state, authentication tokens (stored client-side in `localStorage`) and password hashes (server-side, Argon2).
-* **Submitted content:** job descriptions, messages, URLs, uploaded PDFs/images/text, and extracted entities such as names, emails, phone numbers, salary and payment demands.
+* **Submitted content:** offers, messages, URLs, uploaded PDFs/images/text, and extracted entities such as names, emails, phone numbers, reward/salary and payment demands.
 * **Assessment data:** indicators, model predictions, component scores, risk category, source status, missing evidence, technical limitations, reports and generated PDFs.
 * **Operational data:** monitoring rules, notifications, audit logs, task records, API usage counters, payment events and correction reports.
 
@@ -126,7 +126,7 @@ You must not:
 * rely solely on a score to deny an opportunity, accuse a person, or take legal action without independent verification and human review;
 * attempt to circumvent authentication, role checks, rate limits, upload validation, sandboxing or audit controls;
 * reverse engineer models, extract artifacts, or probe the service for bulk data scraping;
-* use the service to build profiles of individuals unrelated to recruitment-fraud prevention;
+* use the service to build profiles of individuals unrelated to fraud prevention or offer verification;
 * configure monitoring to fetch unapproved sources or use licensed registry/threat data outside its licence;
 * introduce malware, automate abusive submissions, or interfere with service availability.
 
@@ -156,7 +156,7 @@ We use strictly necessary client storage to keep you signed in and remember pref
 ## 6. Disclaimers — DRAFT
 
 1. **No guarantee.** Risk scores, categories, model predictions and indicators are probabilistic and can be wrong. A low score does not mean an employer, message or opportunity is legitimate. An inconclusive result means available evidence was insufficient.
-2. **Approved model limits.** The two approved models are English-language, text-only classifiers trained on the EMSCAD corpus. Their reported ROC-AUC is high (0.9891 / 0.9914) while precision is 0.375 / 0.4595. Message and anomaly models are rejected and the system uses explicit rule fallbacks. Sigmoid-mapped scores and `confidence` values are not calibrated probabilities.
+2. **Approved model limits.** Approved models are text-only TF-IDF classifiers scoped to job posts (EMSCAD) and, when the optional corpus is present, DIFrauD message/job deception text. DIFrauD is `real_world_data=true` but `production_grade=false`; generic offers, rejected families and anomaly scoring use explicit labelled rule fallbacks. High ROC-AUC does not imply low false-positive risk, and sigmoid-mapped scores and `confidence` values are not calibrated probabilities.
 3. **Not a background check or legal advice.** The service does not verify identity, employment history, creditworthiness or criminal records, and does not provide legal conclusions.
 4. **Third-party information.** Domain, reputation and registry results depend on external providers and licensed intermediaries; availability, accuracy and licence restrictions vary. Unconfigured sources are reported as unavailable.
 5. **Human review required.** Do not pay fees, share OTPs or banking credentials, or make adverse decisions based solely on a TrustLens result.

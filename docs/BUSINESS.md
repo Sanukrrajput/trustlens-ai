@@ -7,7 +7,7 @@
 
 ## 1. Product in one paragraph
 
-TrustLens AI is a commercial SaaS platform that screens recruitment content (job posts, messages, URLs and documents) and companies for fraud indicators. It returns an explainable 0–100 risk band, the evidence behind it, the sources attempted and succeeded, explicit limitations, and a downloadable report. External corroboration is consent-gated; unconfigured providers are reported as unavailable rather than simulated. Risk scores are decision support, not determinations of legitimacy.
+TrustLens AI is a commercial SaaS platform that screens online offers, adverts, messages, URLs and documents for fraud indicators. Recruitment is one supported category, not the product identity. It returns an explainable 0–100 risk band, the evidence behind it, the sources attempted and succeeded, explicit limitations, and a downloadable report. External corroboration is consent-gated; unconfigured providers are reported as unavailable rather than simulated. Risk scores are decision support, not determinations of legitimacy.
 
 ---
 
@@ -15,7 +15,7 @@ TrustLens AI is a commercial SaaS platform that screens recruitment content (job
 
 | Segment | Buyer / user | Evidence-backed need | Product fit in current code |
 | --- | --- | --- | --- |
-| Individual job seekers | Self-serve users on `free`, `student`, `professional` | Screen suspicious postings and recruiter messages before paying fees or sharing documents. | Job/message/URL/document analysis, risk bands, recommended actions, PDF reports. |
+| Everyday internet users | Self-serve users on `free`, `student`, `professional` | Screen suspicious offers, messages and links before paying fees or sharing documents. | Offer/message/URL/document analysis, risk bands, recommended actions, PDF reports. |
 | Students and recent graduates | Students, career cells, individual students | Affordable protection during high-volume applications. | `student` plan with higher scan limits, PDF reports, job monitoring and email alerts. Email delivery requires SMTP configuration. |
 | Recruiters and employers | Fraud/risk teams, talent leaders | Protect brand and candidates from impersonation and fake postings. | Company verification, domain intelligence, monitoring, historical/anomaly checks, admin analytics. |
 | Universities and placement cells | Institutional buyers, staff administrators | Verify employers and protect students at scale. | `university` plan features: organisation accounts, bulk verification, staff accounts, institutional reports, centralised monitoring. |
@@ -40,10 +40,10 @@ Plans are seeded into MongoDB by `PlanService.default_plans()` when absent, then
 
 | Code | Name | Description | Monthly (paise / INR) | Yearly (paise / INR) | Scan limit | Features | Active | Popular |
 | --- | --- | --- | --- | --- | ---: | --- | --- | --- |
-| `free` | Free | Basic screening for individual job seekers. | 0 / ₹0 | 0 / ₹0 | 10 | Basic job analysis; Basic message analysis; Standard risk report | Yes | No |
-| `student` | Student | Affordable protection for students and recent graduates. | 9,900 / ₹99 | 99,000 / ₹990 | 100 | Higher scan limits; PDF reports; Job monitoring; Email alerts | Yes | Yes |
-| `professional` | Professional | Advanced investigation for active job seekers and recruiters. | 29,900 / ₹299 | 299,000 / ₹2,990 | 500 | Advanced domain intelligence; Detailed reports; Multiple monitored companies; Advanced analytics | Yes | No |
-| `university` | University | Placement-cell and institutional verification workspace. | 99,900 / ₹999 | 999,000 / ₹9,990 | 5,000 | Organization accounts; Bulk verification; Staff accounts; Institutional reports; Centralized monitoring | Yes | No |
+| `free` | Free | Basic screening for individual users. | 0 / ₹0 | 0 / ₹0 | 10 | Basic offer analysis; Basic message analysis; Standard risk report | Yes | No |
+| `student` | Student | Affordable protection for students, recent graduates and everyday users. | 9,900 / ₹99 | 99,000 / ₹990 | 100 | Higher scan limits; PDF reports; Offer monitoring; Email alerts | Yes | Yes |
+| `professional` | Professional | Advanced investigation for frequent users and teams. | 29,900 / ₹299 | 299,000 / ₹2,990 | 500 | Advanced domain intelligence; Detailed reports; Multiple monitored entities; Advanced analytics | Yes | No |
+| `university` | University | Institutional verification workspace. | 99,900 / ₹999 | 999,000 / ₹9,990 | 5,000 | Organization accounts; Bulk verification; Staff accounts; Institutional reports; Centralized monitoring | Yes | No |
 | `enterprise` | Enterprise | Custom deployment, API access and organisation-wide monitoring. | 0 / ₹0 | 0 / ₹0 | 100,000 | Custom limits; API access; Organization-wide monitoring; Role-based administration; Custom reporting | Yes | No |
 
 Scan limits are also configurable through `FREE_SCAN_LIMIT`, `STUDENT_SCAN_LIMIT`, `PROFESSIONAL_SCAN_LIMIT`, `UNIVERSITY_SCAN_LIMIT` and `ENTERPRISE_SCAN_LIMIT` (defaults `10 / 100 / 500 / 5000 / 100000`). `PlanService.can_scan()` denies scans once usage reaches the limit; `consume_scan()` increments usage after a completed analysis.
@@ -63,7 +63,7 @@ The code contains prices, so the following is guidance on how to use them commer
 
 * Keep `free` as an acquisition tier with a hard 10-scan limit; it is adequate for a first suspicious posting but not for ongoing monitoring.
 * Position `student` as the high-volume self-serve tier (₹99 monthly / ₹990 yearly seeded); it is the only plan flagged `popular` in code.
-* Position `professional` for active job seekers and recruiters (₹299 monthly / ₹2,990 yearly seeded) and gate it on advanced domain intelligence and monitoring depth.
+* Position `professional` for frequent users and teams (₹299 monthly / ₹2,990 yearly seeded) and gate it on advanced domain intelligence and monitoring depth.
 * Treat `university` (₹999 monthly / ₹9,990 yearly seeded) as an institutional landing tier with seat/staff and reporting value, not merely a scan bundle.
 * Keep `enterprise` at zero online price and sell it through contracts; scope custom deployment, organisation-wide monitoring and any API access explicitly in the agreement.
 * Validate annual pricing, taxes, refund policy, currency support and provider fees before launch; the code stores amounts only and contains no tax or discount engine.
@@ -73,12 +73,12 @@ The code contains prices, so the following is guidance on how to use them commer
 
 ## 6. Go-to-market motion (recommendations)
 
-1. **Self-serve / PLG:** landing page → free account → first job or message scan → PDF report → upgrade prompt at the 10-scan limit. The current UI already exposes plans, checkout and subscription state.
+1. **Self-serve / PLG:** landing page → free account → first offer, message, link or document scan → PDF report → upgrade prompt at the 10-scan limit. The current UI already exposes plans, checkout and subscription state.
 2. **Campus and university channel:** pilot with placement cells using the `university` plan feature set (staff accounts, bulk verification, centralised monitoring). Require counsel-reviewed data-sharing terms and consent flows before handling student data.
 3. **Employer / recruiter channel:** sell brand-protection and candidate-assurance workflows around company verification and monitoring; emphasise that outputs are advisory and require human review.
-4. **Job-board and marketplace partnerships:** propose embedded screening using allow-listed job sources; note that no partner API or embed widget has been implemented.
+4. **Marketplace and listing-platform partnerships:** propose embedded screening using allow-listed offer sources; note that no partner API or embed widget has been implemented.
 5. **Licensed data partners:** contract a corporate-registry intermediary (MCA has no official public API) and a commercial URL reputation source (Google Web Risk rather than non-commercial Safe Browsing v4 for commercial use).
-6. **Content and trust:** publish explainers on recruitment-fraud patterns, consent and report interpretation. Avoid claims of guaranteed detection; use the manifest's actual metrics only with their limitations.
+6. **Content and trust:** publish explainers on offer-fraud and recruitment-fraud patterns, consent and report interpretation. Recruitment is one category, not the product's identity. Avoid claims of guaranteed detection; use the manifest's actual metrics only with their limitations.
 
 No customer acquisition activity, conversion tracking or partner agreements are evidenced in this repository.
 
@@ -131,13 +131,13 @@ Use the simple model: `contribution per account = realised plan revenue − (sca
 | University / institution | University plan features, RBAC, monitoring, admin dashboard. | Signed DPA, consent architecture review, data residency/retention decisions, staff onboarding, support SLA. |
 | Enterprise custom | Enterprise plan descriptor, Compose deployment, audit/config admin endpoints. | Define and implement “API access” deliverable, SSO/host allow-list/TLS, deployment runbook, security review, contract SLA. |
 | Data/registry partner | `MCA_API_URL`/`MCA_API_KEY` integration point and separate consent gate. | Licensed intermediary contract, lawful basis/consent design, quota and cost model. |
-| Job-board/channel | Allow-listed job source configuration and monitoring tasks. | Partner API/embed work, source agreements, abuse controls and attribution. |
+| Marketplace/channel | Allow-listed offer source configuration and monitoring tasks. | Partner API/embed work, source agreements, abuse controls and attribution. |
 
 ---
 
 ## 10. Key commercial risks
 
-1. **Trust risk from false positives/negatives:** approved job models have 0.375 / 0.459 precision; message/anomaly outputs are rule fallbacks. Overstating accuracy would damage credibility.
+1. **Trust risk from false positives/negatives:** approved EMSCAD job models have 0.375 / 0.459 precision; DIFrauD message/job models have 0.539 / 0.324 precision with different false-positive profiles, and generic offers/anomaly outputs use labelled rule fallbacks. Overstating accuracy would damage credibility.
 2. **Coverage risk:** without configured external feeds, many assessments are inconclusive; customer value depends on licenses for commercial threat and registry data.
 3. **Legal/regulatory risk:** unreviewed legal drafts, unresolved data-subject tooling, retention settings without enforcement, and jurisdictional placeholders.
 4. **Payment readiness risk:** only Razorpay test keys are configured locally and the webhook secret is not yet registered in the dashboard; no live provider or signed activation drill exists. A “success” callback cannot and must not activate paid access.

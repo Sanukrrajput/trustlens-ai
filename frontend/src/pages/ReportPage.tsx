@@ -294,9 +294,9 @@ export function ReportPage() {
           <Card title="Extracted entities">
             <div className="grid gap-3 sm:grid-cols-2">
               <ValueBlock label="Company names" value={<TagList values={extracted.company_names} />} />
-              <ValueBlock label="Job titles" value={<TagList values={extracted.job_titles} />} />
-              <ValueBlock label="Salary" value={extracted.salary || 'Not stated'} />
-              <ValueBlock label="Recruiter emails" value={<TagList values={extracted.recruiter_emails} />} />
+              <ValueBlock label="Claimed roles" value={<TagList values={extracted.job_titles} />} />
+              <ValueBlock label="Salary or reward" value={extracted.salary || 'Not stated'} />
+              <ValueBlock label="Claimed contact emails" value={<TagList values={extracted.recruiter_emails} />} />
               <ValueBlock label="Phone numbers" value={<TagList values={extracted.phone_numbers} />} />
               <ValueBlock label="URLs" value={<TagList values={extracted.urls} />} />
               <ValueBlock label="Payment demands" value={<TagList values={extracted.payment_demands} />} />

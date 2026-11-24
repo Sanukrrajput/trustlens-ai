@@ -115,8 +115,8 @@ export function MonitoringPage() {
     <div>
       <SectionHeading
         eyebrow="Continuous vigilance"
-        title="Job monitoring"
-        description="Track companies, roles, keywords and source URLs. Notifications appear in your workspace and optionally by email."
+        title="Offer monitoring"
+        description="Track entities, offers, keywords and source URLs. Notifications appear in your workspace and optionally by email."
         action={
           <button className="btn-primary" onClick={() => setShowForm((value) => !value)}>
             {showForm ? 'Cancel' : <><Plus className="h-4 w-4" /> New monitor</>}
@@ -128,14 +128,14 @@ export function MonitoringPage() {
         <Card className="mb-6" title="Create monitoring task">
           <form onSubmit={submit} noValidate className="space-y-4">
             <Field label="Task name" htmlFor="monitor-name" error={errors.name} required>
-              <input id="monitor-name" className="input" value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} placeholder="e.g. Remote finance roles" />
+              <input id="monitor-name" className="input" value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} placeholder="e.g. Limited-time electronics offer" />
             </Field>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Company names" hint="Comma or newline separated">
+              <Field label="Entity names" hint="Comma or newline separated">
                 <textarea id="monitor-companies" className="input min-h-[80px]" value={form.company_names} onChange={(event) => setForm((current) => ({ ...current, company_names: event.target.value }))} placeholder="Acme Corp, Example Ltd" />
               </Field>
-              <Field label="Job titles" hint="Comma or newline separated">
-                <textarea id="monitor-titles" className="input min-h-[80px]" value={form.job_titles} onChange={(event) => setForm((current) => ({ ...current, job_titles: event.target.value }))} placeholder="Remote Accountant" />
+              <Field label="Offer titles" hint="Comma or newline separated">
+                <textarea id="monitor-titles" className="input min-h-[80px]" value={form.job_titles} onChange={(event) => setForm((current) => ({ ...current, job_titles: event.target.value }))} placeholder="Concert ticket discount" />
               </Field>
               <Field label="Keywords">
                 <input id="monitor-keywords" className="input" value={form.keywords} onChange={(event) => setForm((current) => ({ ...current, keywords: event.target.value }))} placeholder="gift card, urgent, no interview" />
@@ -164,7 +164,7 @@ export function MonitoringPage() {
               rows={tasks}
               rowKey={(row) => row.id}
               emptyTitle="No monitoring tasks"
-              emptyDescription="Create a monitor to track companies, roles and keywords over time."
+              emptyDescription="Create a monitor to track entities, offers and keywords over time."
               compact
             />
           )}

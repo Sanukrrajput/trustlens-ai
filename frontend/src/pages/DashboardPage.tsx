@@ -242,8 +242,8 @@ export function DashboardPage() {
           <EmptyState
             icon={<AlertTriangle className="h-5 w-5" />}
             title="Start your first investigation"
-            description="Paste a job description, message or URL. You will receive evidence, confidence and limitations — not a blind verdict."
-            action={<Link to="/app/scan" className="btn-primary">Analyse an opportunity</Link>}
+            description="Paste an offer, message, URL or screenshot. You will receive evidence, confidence, missing information and next steps — not a blind verdict."
+            action={<Link to="/app/scan" className="btn-primary">Check an offer</Link>}
           />
         </Card>
       )}

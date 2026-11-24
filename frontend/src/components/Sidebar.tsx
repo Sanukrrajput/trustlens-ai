@@ -17,7 +17,7 @@ const links = [
   { to: '/app', label: 'Overview', icon: LayoutDashboard, end: true },
   { to: '/app/scan', label: 'New scan', icon: ScanSearch },
   { to: '/app/company', label: 'Company intelligence', icon: Building2 },
-  { to: '/app/monitoring', label: 'Job monitoring', icon: Radar },
+  { to: '/app/monitoring', label: 'Offer monitoring', icon: Radar },
   { to: '/app/billing', label: 'Plans & billing', icon: CreditCard },
   { to: '/app/settings', label: 'Settings', icon: Settings },
 ];

@@ -38,7 +38,27 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--data-dir", default=None, help="Dataset directory (default: settings.data_dir)")
     parser.add_argument("--model-dir", default=None, help="Artifact directory (default: settings.model_dir)")
     parser.add_argument("--log-level", default="INFO", help="Logging level")
+    parser.add_argument(
+        "--no-difraud",
+        action="store_true",
+        help="Skip the optional DIFrauD corpus and train legacy families only",
+    )
+    parser.add_argument(
+        "--message-domains",
+        default="phishing,sms",
+        help="Comma-separated DIFrauD domains for the message model (default: phishing,sms)",
+    )
+    parser.add_argument(
+        "--job-domains",
+        default="job_scams",
+        help="Comma-separated DIFrauD domains for the job model (default: job_scams)",
+    )
     return parser
+
+
+def _parse_domains(value: str) -> tuple[str, ...]:
+    """Parse a comma-separated domain list from the CLI into a clean tuple."""
+    return tuple(part.strip() for part in value.split(",") if part.strip())
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -47,7 +67,15 @@ def main(argv: list[str] | None = None) -> int:
     settings = Settings()
     data_dir = args.data_dir or _resolve_storage_path(settings.data_dir)
     model_dir = args.model_dir or _resolve_storage_path(settings.model_dir)
-    summary = train_all(data_dir=data_dir, model_dir=model_dir)
+    summary = train_all(
+        data_dir=data_dir,
+        model_dir=model_dir,
+        include_difraud=not args.no_difraud,
+        difraud_domains={
+            "message": _parse_domains(args.message_domains),
+            "job": _parse_domains(args.job_domains),
+        },
+    )
     print(json.dumps(summary, indent=2, default=str, ensure_ascii=False))
     return 0
 

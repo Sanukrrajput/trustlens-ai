@@ -1,4 +1,4 @@
-"""Runtime prediction for job descriptions, recruitment messages and anomalies.
+"""Runtime prediction for offer text, messages, links and anomalies.
 
 Integrity rules
 ---------------
@@ -38,6 +38,8 @@ MANIFEST_FILENAME = "model_manifest.json"
 FAMILY_JOB = "job_tfidf_logreg"
 FAMILY_JOB_SVC = "job_tfidf_linearsvc"
 FAMILY_MESSAGE = "message_tfidf_logreg"
+FAMILY_DIFRAUD_JOB = "job_difraud_logreg"
+FAMILY_DIFRAUD_MESSAGE = "message_difraud_logreg"
 FAMILY_ANOMALY_IFOREST = "anomaly_iforest"
 FAMILY_ANOMALY_BOOSTED = "anomaly_supervised"
 
@@ -160,8 +162,10 @@ class TextPredictor:
             return None
         active = [row for row in approved if row.get("active") is True]
         pool = active or approved
-        # Versions are ISO-8601-ish; lexical max is chronological.
-        return max(pool, key=lambda row: str(row.get("version", "")))
+        # Versions are ISO-8601-ish; lexical max is chronological. The manifest
+        # writes ``model_version`` (not ``version``), so use the real key or the
+        # comparison silently degrades to the first approved entry.
+        return max(pool, key=lambda row: str(row.get("model_version", "")))
 
     def _load(self, family: str) -> dict[str, Any] | None:
         if family in self._artifacts:
@@ -391,13 +395,27 @@ class TextPredictor:
                 enough_signal=len(normalised.split()) >= 4,
             )
 
+    def _preferred_family(self, families: tuple[str, ...]) -> str:
+        """Return the first family with a loadable approved artifact.
+
+        Preference order is explicit: a real-data DIFrauD model wins when it is
+        approved and loadable; the legacy/synthetic family remains available so
+        a failed DIFrauD load never regresses inference to a rule fallback.
+        """
+        for family in families:
+            if self._load(family) is not None:
+                return family
+        return families[-1]
+
     def predict_job(self, text: str) -> dict[str, Any]:
         """Score a job description. See module docstring for output contract."""
-        return self._predict_text(FAMILY_JOB, text, is_message=False)
+        family = self._preferred_family((FAMILY_DIFRAUD_JOB, FAMILY_JOB))
+        return self._predict_text(family, text, is_message=False)
 
     def predict_message(self, text: str, channel: str = "unknown") -> dict[str, Any]:
-        """Score a recruitment message; ``channel`` is recorded as a limitation note."""
-        result = self._predict_text(FAMILY_MESSAGE, text, is_message=True)
+        """Score any message; ``channel`` is recorded as a limitation note."""
+        family = self._preferred_family((FAMILY_DIFRAUD_MESSAGE, FAMILY_MESSAGE))
+        result = self._predict_text(family, text, is_message=True)
         if channel and channel != "unknown":
             result["limitations"].append(
                 f"Message channel '{channel}' was supplied but the model was not conditioned on channel."

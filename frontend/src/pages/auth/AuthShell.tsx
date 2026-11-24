@@ -25,7 +25,7 @@ export function AuthShell({
         <div className="relative max-w-lg">
           <span className="chip border-white/20 bg-white/5 text-cyan-200">EVIDENCE, NOT ASSUMPTIONS</span>
           <h2 className="mt-6 text-4xl font-extrabold leading-tight tracking-tight">
-            Verify before you apply.<br />Detect before you trust.
+            Verify before you act.<br />Decide with evidence.
           </h2>
           <p className="mt-5 text-base leading-relaxed text-slate-300">
             Every assessment explains what was found, what could not be verified, and how much confidence to place in the result.

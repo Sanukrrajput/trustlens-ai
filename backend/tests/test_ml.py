@@ -7,6 +7,7 @@ Run from the repository root:
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -20,6 +21,11 @@ import pandas as pd  # noqa: E402
 
 from app.core.config import Settings  # noqa: E402
 from app.core.risk_engine import _categorise, score_risk  # noqa: E402
+from app.ml.datasets.difraud import (  # noqa: E402
+    difraud_limitations,
+    load_difraud_dataset,
+    scrub_personal_data,
+)
 from app.ml.datasets.synthetic_messages import (  # noqa: E402
     DATASET_PROVENANCE as SYNTHETIC_PROVENANCE,
 )
@@ -34,7 +40,13 @@ from app.ml.features import (  # noqa: E402
     build_anomaly_vector,
     normalize_text,
 )
-from app.ml.inference.predictor import TextPredictor  # noqa: E402
+from app.ml.inference.predictor import (  # noqa: E402
+    FAMILY_DIFRAUD_JOB,
+    FAMILY_DIFRAUD_MESSAGE,
+    FAMILY_JOB,
+    FAMILY_MESSAGE,
+    TextPredictor,
+)
 from app.ml.training.train import (  # noqa: E402
     _approval,
     _parse_label,
@@ -550,3 +562,127 @@ def test_training_fallback_never_approves_synthetic_models(
     predictor = TextPredictor(summary["model_dir"])
     result = predictor.predict_job("URGENT pay a wire transfer processing fee now")
     assert result["model_name"].endswith("_rule_fallback")
+
+
+# --------------------------------------------------------------- DIFrauD tests
+def test_difraud_scrub_redacts_obvious_direct_identifiers() -> None:
+    text = "Write to jane.doe@example.com or call +1 (415) 555-0199 for details."
+    scrubbed = scrub_personal_data(text)
+    assert "jane.doe@" not in scrubbed
+    assert "[EMAIL]@example.com" in scrubbed
+    assert "555-0199" not in scrubbed
+    assert "[PHONE]" in scrubbed
+
+
+def test_difraud_loader_redacts_and_records_provenance(tmp_path: Path) -> None:
+    root = tmp_path / "data" / "datasets" / "difraud" / "phishing"
+    root.mkdir(parents=True)
+    deceptive = (
+        "URGENT verify your account now. Contact jane.doe@example.com "
+        "or +1 (415) 555-0199 before your access is cancelled immediately."
+    )
+    legitimate = "Thank you for your continued interest in our weekly product newsletter and updates."
+
+    variants = {
+        "train": [
+            {"text": deceptive, "label": 1},
+            {"text": legitimate, "label": 0},
+        ],
+        "validation": [
+            {"text": "Please confirm your password immediately using the link in this message.", "label": 1},
+            {"text": "Your monthly account summary is ready to view in the secure member portal.", "label": 0},
+        ],
+        "test": [
+            {"text": "A wire transfer is required today or your parcel cannot be released.", "label": 1},
+            {"text": "We have scheduled the community meeting for next Tuesday evening.", "label": 0},
+            # Cross-split duplicate must be removed to avoid evaluation leakage.
+            {"text": deceptive, "label": 1},
+        ],
+    }
+    for split, content in variants.items():
+        (root / f"{split}.jsonl").write_text(
+            "\n".join(json.dumps(row) for row in content) + "\n", encoding="utf-8"
+        )
+
+    loaded = load_difraud_dataset(str(tmp_path / "data"), ("phishing",))
+    assert loaded is not None
+    train, validation, test, provenance = loaded
+    assert [len(train), len(validation), len(test)] == [2, 2, 2]
+    assert "jane.doe" not in " ".join(train["text"])
+    assert "555-0199" not in " ".join(train["text"])
+    assert "emailtoken" in " ".join(train["text"])
+    assert provenance["dataset"] == "difraud/difraud"
+    assert provenance["license"] == "MIT"
+    assert provenance["domains"] == ["phishing"]
+    assert provenance["real_world_data"] is True
+    assert provenance["production_grade"] is False
+    assert provenance["class_counts"]["test"] == {"1": 1, "0": 1}
+    assert "source_sha256" in provenance
+    assert len(difraud_limitations(("phishing",))) >= 3
+
+
+def _approved_text_entry(tmp_path: Path, family: str, version: str) -> dict:
+    pipeline = _text_pipeline(min_df=1)
+    pipeline.fit(
+        ["urgent gift card payment fee now", "thank you for applying to our interview portal salary"],
+        [1, 0],
+    )
+    payload = {
+        "schema_version": "1.0",
+        "model_name": family,
+        "model_version": "",
+        "kind": "text",
+        "pipeline": pipeline,
+        "fraud_class_index": 1,
+        "threshold": 0.5,
+        "feature_names": list(pipeline.named_steps["tfidf"].get_feature_names_out()),
+        "provenance": {"name": "test", "real_world_data": True},
+        "limitations": ["test limitations"],
+        "approved": False,
+    }
+    return save_model_bundle(
+        tmp_path,
+        family=family,
+        version=version,
+        payload=payload,
+        approved=True,
+        metrics={},
+        provenance={"name": "test", "real_world_data": True},
+        limitations=[],
+    )
+
+
+def test_inference_prefers_approved_difraud_families(tmp_path: Path) -> None:
+    entries = [
+        _approved_text_entry(tmp_path, FAMILY_JOB, "vlegacy"),
+        _approved_text_entry(tmp_path, FAMILY_DIFRAUD_JOB, "vdifraud"),
+        _approved_text_entry(tmp_path, FAMILY_MESSAGE, "vlegacy"),
+        _approved_text_entry(tmp_path, FAMILY_DIFRAUD_MESSAGE, "vdifraud"),
+    ]
+    write_manifest(tmp_path, entries, "vtest")
+    predictor = TextPredictor(str(tmp_path))
+    text = "urgent gift card payment fee now"
+    assert predictor.predict_job(text)["model_name"] == FAMILY_DIFRAUD_JOB
+    assert predictor.predict_message(text)["model_name"] == FAMILY_DIFRAUD_MESSAGE
+
+
+def test_inference_falls_back_from_unloadable_difraud_artifact(tmp_path: Path) -> None:
+    legacy = _approved_text_entry(tmp_path, FAMILY_JOB, "vlegacy")
+    broken = {
+        "model_name": FAMILY_DIFRAUD_JOB,
+        "model_version": "vbroken",
+        "family": FAMILY_DIFRAUD_JOB,
+        "kind": "text",
+        "implementation": "sklearn.linear_model",
+        "approved": True,
+        "active": True,
+        "artifact": "missing_difraud_artifact.joblib",
+        "metadata": "missing_difraud_artifact.meta.json",
+        "metrics": {},
+        "provenance": {},
+        "limitations": [],
+        "created_at": "2026-01-01T00:00:00+00:00",
+    }
+    write_manifest(tmp_path, [legacy, broken], "vtest")
+    result = TextPredictor(str(tmp_path)).predict_job("urgent gift card payment fee now")
+    assert result["model_name"] == FAMILY_JOB

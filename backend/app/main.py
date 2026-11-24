@@ -269,7 +269,7 @@ app = FastAPI(
     title="TrustLens AI API",
     version=VERSION,
     description=(
-        "Explainable recruitment-fraud detection: ML predictions, consent-gated intelligence, "
+        "Explainable online-offer verification: scoped ML predictions, consent-gated intelligence, "
         "evidence-backed risk scoring and auditable reports."
     ),
     lifespan=lifespan,

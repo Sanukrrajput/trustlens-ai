@@ -296,7 +296,7 @@ python backend/scripts/train_models.py \
   --log-level WARNING
 ```
 
-This CI-safe command was also verified locally against a temporary directory. It produced the same two approved models and the same metrics as the checked-in manifest, while rejecting the message and anomaly models with explicit reasons.
+This CI-safe command was also verified locally against a temporary directory. With the optional DIFrauD corpus present it approves the EMSCAD job models and the DIFrauD message/job families while rejecting the synthetic message and anomaly families with explicit reasons. Without the corpus it trains the legacy families only and records a skip note.
 
 The script resolves relative storage paths against `backend/` when the given path does not exist. If the real corpus is unavailable, the training code uses an explicitly non-production synthetic fallback and does not approve those models, as asserted by `test_ml.py`.
 

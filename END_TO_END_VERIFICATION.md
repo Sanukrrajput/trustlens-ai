@@ -1,9 +1,14 @@
 # TrustLens AI — Local End-to-End Verification
 
-**Verification date:** 2026-11-20  
-**Scope:** local functional verification of the current working tree before deployment  
-**Overall result:** **15 PASS, 1 PARTIAL, 0 FAIL** across the 16 requested capability areas.  
-**Deployment status:** **not deployed, not pushed.** The application code was not modified during verification.
+**Verification date:** 2026-11-20
+
+**Final evidence generated:** `2026-11-20T08:49:58.788151+00:00`
+
+**Scope:** local functional verification of the final working tree before deployment
+
+**Overall result:** **15 PASS, 1 PARTIAL, 0 FAIL** across the 16 requested capability areas.
+
+**Deployment status:** **not deployed, not pushed.** Offer-first copy was finalised before the last test/E2E rerun; no deployment or push was performed.
 
 ---
 
@@ -60,7 +65,7 @@ Supporting suite results:
 
 | Check | Result |
 |---|---|
-| `.\.venv\Scripts\python.exe -m pytest backend/tests -q --tb=line` | **111 passed** |
+| `.\.venv\Scripts\python.exe -m pytest backend/tests -q --tb=line` | **115 passed** |
 | Frontend `npm test -- --run` | **7 test files, 29 tests passed** |
 | Browser extension `npm test` | **6 tests passed, 0 failed** |
 | Standalone E2E harness | **15 PASS, 1 PARTIAL, 0 FAIL** |
@@ -68,7 +73,7 @@ Supporting suite results:
 | `docker compose config --quiet` | passed |
 | `compileall` | passed |
 | Ruff | passed |
-| Secret scan | `ok`, 299 tracked files scanned |
+| Secret scan | `ok`, 300 tracked files scanned |
 | `pip check` | passed |
 | `npm ls --omit=dev` | passed |
 | `pip-audit` | 0 vulnerabilities |
@@ -76,6 +81,29 @@ Supporting suite results:
 | CI YAML parse | passed |
 
 Container image builds were not run locally because the Docker daemon was unavailable; CI performs both builds.
+
+### 2.1 Offer-first product and DIFrauD model checks
+
+These checks sit outside the 16 harness features but were part of the final working-tree verification.
+
+| Check | Result |
+|---|---|
+| Canonical product concept | `TRUSTLENS_CONCEPT.md` is the single source of truth: TrustLens is an offer-first verification product; recruitment is one category, not the product's identity. |
+| Public naming | Public API reports `app_name = "TrustLens AI"`. Landing page title is `TrustLens AI — Verify before you act`; H1 is `Verify Before You Act. Decide With Evidence.` No user-facing `HireShield` text was found. `hireshield` remains only a compatibility database key/hostname. |
+| Scanner default | Scanner UI defaults to the generic `offer` tab; recruitment is available as one category. |
+| Live pricing copy | `/api/v1/billing/plans` and the rendered page show generic copy (`Basic screening for individual users.`, `Basic offer analysis`, `Offer monitoring`, `Multiple monitored entities`, `Institutional verification workspace.`). The stale job-centric plan strings were removed. |
+| Browser spot-check | A cache-busted reload of the local Vite server (`http://127.0.0.1:5174/`; port `5173` was already occupied by an unrelated local dev server) after the final backend restart showed 0 console errors and 0 failed/4xx/5xx requests. `/health` returned `200`. |
+| DIFrauD source handling | Dataset source is `https://huggingface.co/datasets/difraud/difraud` (MIT, revision marker `main`). Raw JSONL remains under gitignored `backend/data/datasets/difraud/` and was not committed. Obvious direct identifiers are redacted before training. No Hugging Face/Transformers/Torch dependency was added. |
+| DIFrauD provenance | Loader emits `real_world_data=true` and `production_grade=false`; `docs/ML.md` documents limitations, family metrics and approval gates. |
+| Model manifest | `backend/models/model_manifest.json` version `v20261120T083930Z-f6e8b1`. Approved families: `job_tfidf_logreg`, `job_tfidf_linearsvc`, `message_difraud_logreg`, `job_difraud_logreg`. Rejected: `message_tfidf_logreg`, `anomaly_iforest`, `anomaly_supervised`; their local artifacts are gitignored and must not be released. |
+| Runtime model selection | Runtime predictor selected `job_model=job_difraud_logreg`, `message_model=message_difraud_logreg`, `offer_model=offer_rule_fallback`. All four approved artifacts load. DIFrauD models are preferred only when approved and loadable; fallbacks and approval gates remain intact. Generic offers remain rule-only and do not reuse recruitment text models. |
+
+DIFrauD held-out metrics (from `docs/ML.md`, not a marketing claim):
+
+| Family | Support | ROC-AUC | Recall | Precision | Error rate |
+|---|---:|---:|---:|---:|---:|
+| Message DIFrauD | 1,927 | 0.9943 | 1.0000 | 0.5390 | FPR 0.3746 |
+| Job DIFrauD | 1,410 | 0.9401 | 0.7931 | 0.3239 | FNR 0.2069 |
 
 ---
 
@@ -96,7 +124,7 @@ Container image builds were not run locally because the Docker daemon was unavai
 
 **Failure path verified:** a logged-out token is rejected.
 
-**Evidence:** account `e2e-auth-1f8e2780@example.com`; statuses `201 / 200 / 200 / 200 / 200 / 401`.
+**Evidence:** account `e2e-auth-6e64413e@example.com`; statuses `201 / 200 / 200 / 200 / 200 / 401`.
 
 **Limitations:** password-reset and email-verification token flows were not exercised in this run.
 
@@ -108,7 +136,7 @@ Container image builds were not run locally because the Docker daemon was unavai
 
 **Actual result:**
 
-- Analysis `6affec963934fbba2867cef7` completed.
+- Analysis `6b0009b7185e6d4906c3fa29` completed.
 - Risk score **67**, category **High risk**.
 - Canonical indicators: `payment_demand`, `sensitive_data_request`, `urgency_pressure`, `brand_campaign_not_verified`, `shared_infrastructure`.
 - Five-category weights were applied: `content 0.30`, `url 0.25`, `brand 0.25`, `threat 0.10`, `community 0.10`.
@@ -129,7 +157,7 @@ Container image builds were not run locally because the Docker daemon was unavai
 
 **Actual result:**
 
-- Stubbed success analysis `6affec973934fbba2867cf04` completed.
+- Stubbed success analysis `6b0009b8185e6d4906c3fa36` completed.
 - `safe_url_fetch` evidence source status was `succeeded`.
 - The provenance-wrapped domain fact was preserved: `domain_age_days = 120`, source `local_stub`, confidence `0.8`.
 - Real fetch result status was `blocked` with error `port 9 is not in the allowed port list`.
@@ -138,7 +166,7 @@ Container image builds were not run locally because the Docker daemon was unavai
 
 **Failure path verified:** loopback and disallowed ports are blocked before any network connection.
 
-**Evidence:** analysis IDs `6affec973934fbba2867cf04` (success) and `6affec973934fbba2867cf07` (blocked); 7/7 checks passed.
+**Evidence:** analysis IDs `6b0009b8185e6d4906c3fa36` (success) and `6b0009b8185e6d4906c3fa39` (blocked); 7/7 checks passed.
 
 **Limitations:**
 
@@ -156,8 +184,8 @@ Container image builds were not run locally because the Docker daemon was unavai
 - Direct OCR status `ok`.
 - Extracted entities: `jobs@example.test`, `https://offers.example.test`, phone number.
 - OCR indicators: `image_contact_details`, `image_credential_request`, `image_payment_request`, each labelled as observations rather than proof.
-- Image analysis `6affec983934fbba2867cf10` completed with `image_intelligence.status = ok`.
-- PDF analysis `6affec983934fbba2867cf17` completed and extracted the payment-demand sentence from the PDF.
+- Image analysis `6b0009b8185e6d4906c3fa42` completed with `image_intelligence.status = ok`.
+- PDF analysis `6b0009b8185e6d4906c3fa4a` completed and extracted the payment-demand sentence from the PDF.
 
 **Evidence:** 8/8 checks passed.
 
@@ -175,7 +203,7 @@ Container image builds were not run locally because the Docker daemon was unavai
 - Extracted text was empty; no image content was invented.
 - Limitation: “Local OCR is not configured: no tesseract binary is available. No text was extracted from the image; do not treat the image as verified.”
 - Indicator `image_ocr_unavailable` had status `technical_limitation`.
-- API analysis `6affec983934fbba2867cf24` preserved `image_intelligence.status = not_configured`.
+- API analysis `6b0009b9185e6d4906c3fa56` preserved `image_intelligence.status = not_configured`.
 - Missing evidence recorded: “No text could be extracted from the submitted image; visual content was not verified.”
 
 **Failure path verified:** unavailable OCR is reported honestly and does not become a clean or confident result.
@@ -213,7 +241,7 @@ Container image builds were not run locally because the Docker daemon was unavai
 
 - `operator_import` source was present.
 - Import returned `200` with `ingested = 1`.
-- Analysis `6affec9a3934fbba2867cf3c` reported `threat_intelligence.status = ok`.
+- Analysis `6b0009ba185e6d4906c3fa6e` reported `threat_intelligence.status = ok`.
 - Match: `blocked-offer.example.test`, source `operator_import`, severity `0.7`, status `unverified`.
 - Canonical analysis indicator `threat_feed_match` was recorded.
 - The match description explicitly states it is decision support and not proof of wrongdoing.
@@ -242,7 +270,7 @@ Container image builds were not run locally because the Docker daemon was unavai
 - Recommended actions included collecting missing evidence, not transferring money or sharing OTPs, and escalating to a human reviewer.
 - Seven timestamped evidence sources were recorded, each with `name`, `status`, `attempted_at` and `observed_at`.
 
-**Evidence:** analysis `6affec963934fbba2867cef7`; 7/7 checks passed.
+**Evidence:** analysis `6b0009b7185e6d4906c3fa29`; 7/7 checks passed.
 
 **Limitations:** the score is an explainable screening blend, not a calibrated fraud probability.
 
@@ -262,7 +290,7 @@ Container image builds were not run locally because the Docker daemon was unavai
 
 **Failure path verified:** absent providers are reported as unavailable; they are never treated as clean evidence.
 
-**Evidence:** analysis `6affec9a3934fbba2867cf4a`; 7/7 checks passed.
+**Evidence:** analysis `6b0009ba185e6d4906c3fa7c`; 7/7 checks passed.
 
 **Limitations:** none specific to this flow.
 
@@ -277,7 +305,7 @@ Container image builds were not run locally because the Docker daemon was unavai
 - Report metadata endpoint returned `200`.
 - PDF endpoint returned `200`, magic bytes `%PDF-1.4`, size 9,717 bytes.
 - Content type `application/pdf`.
-- Content disposition `attachment; filename="trustlens-report-6affec963934fbba2867cef7.pdf"`.
+- Content disposition `attachment; filename="trustlens-report-6b0009b7185e6d4906c3fa29.pdf"`.
 - Admin CSV export returned `200` with header `analysis_id,created_at,analysis_type,risk_score,risk_category,inconclusive,indicator_count`.
 
 **Evidence:** 5/5 checks passed.
@@ -491,6 +519,11 @@ The local functional baseline is green, but the following items remain before pr
 8. **Build verification**
    - Build both container images on a machine with a Docker daemon; CI is configured to do this, but local daemon access was unavailable during this run.
 
+9. **ML data governance**
+   - Complete counsel/privacy review of the DIFrauD licence, redaction process and retention of the local raw corpus before any production use.
+   - Keep the corpus and derived artifacts out of git; preserve the `production_grade=false` disclaimer in all operator and public surfaces.
+   - Add drift/calibration monitoring and an explicit retrospective review of DIFrauD false-positive and false-negative cases.
+
 ---
 
 ## 6. Reproduction commands
@@ -527,4 +560,4 @@ Bearer tokens were removed from the evidence file before it was written.
 
 ## 7. Final statement
 
-All 16 requested capability areas were exercised locally. Fifteen passed and one is partial solely because self-service deletion is not implemented. Failure paths, unavailable integrations and stub boundaries are documented above. No deployment or push was performed, and this report is left uncommitted pending explicit approval.
+All 16 requested capability areas were exercised locally. Fifteen passed and one is partial solely because self-service deletion is not implemented. Failure paths, unavailable integrations and stub boundaries are documented above. Offer-first naming and DIFrauD integration checks were also completed as described in Section 2.1. No deployment or push was performed, and this report is left uncommitted pending explicit approval.

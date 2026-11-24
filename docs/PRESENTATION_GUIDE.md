@@ -2,11 +2,11 @@
 
 Use this guide to present the project honestly: what is built, what is actually wired, what is disabled, and what evidence proves it.
 
-For a visual opener, use the live app landing page at <https://hireshield-web-j72o.onrender.com>. The interactive 3D hero explains the internal request path: browser → FastAPI → repositories → MongoDB → approved ML → evidence response. Its source is `frontend/src/components/ArchitectureScene3D.tsx`.
+For a visual opener, use the configured deployment URL. If the legacy `hireshield-*` Render hostname is still present, introduce it as a compatibility key, not the product name; the canonical definition is [TRUSTLENS_CONCEPT.md](../TRUSTLENS_CONCEPT.md). The interactive 3D hero explains the internal request path: browser → FastAPI → repositories → MongoDB → approved ML → evidence response. Its source is `frontend/src/components/ArchitectureScene3D.tsx`.
 
 ## 1. One-line pitch
 
-> TrustLens AI is an explainable recruitment-fraud decision-support app: FastAPI + MongoDB Atlas + approved scikit-learn text models + a React frontend, deployed as a free Render evaluation stack with a docs-backed support chatbot.
+> TrustLens AI is an explainable online-offer verification app: FastAPI + MongoDB Atlas + scoped, approved scikit-learn text models + a React frontend, deployed as a free Render evaluation stack with a docs-backed support chatbot. Recruitment is one offer category.
 
 Do **not** call it a finished commercial SaaS launch. The current status is **evaluation deployment live; production launch NO-GO**.
 
@@ -16,13 +16,13 @@ Do **not** call it a finished commercial SaaS launch. The current status is **ev
 
 | # | Slide | What to say | What to show |
 | --- | --- | --- | --- |
-| 1 | Title | “TrustLens AI — explainable recruitment-fraud decision support.” | Live frontend URL. |
-| 2 | Problem | Fake job posts and recruiter messages mix real signals with pressure tactics. A single score is not enough. | Landing page / scanner screen. |
+| 1 | Title | “TrustLens AI — verify before you act, decide with evidence.” | Live frontend URL. |
+| 2 | Problem | Fake offers, adverts, messages and links mix real signals with pressure tactics. A single score is not enough. | Landing page / scanner screen. |
 | 3 | What it does | Extracts signals, combines approved text models + rules + optional public-source checks, then explains evidence and limitations. | `README.md` → “What it does”. |
 | 4 | Architecture | Browser → Render static site → FastAPI API → MongoDB Atlas; model artifacts loaded from the repo. | Mermaid diagram below. |
 | 5 | Backend | Typed Pydantic APIs, auth/RBAC, rate limit, security headers, health/config endpoints, fail-closed production DB. | `/health`, `/api/v1/system/config`, `docs/API.md`. |
 | 6 | MongoDB | Atlas M0 stores users, analyses, audit logs, plans, reports and support chat logs. Repositories centralise access; validators and TTL indexes exist. | Atlas collections or API proof below. |
-| 7 | ML model | Two approved English job-text models from EMSCAD; three rejected/inactive models; only `approved: true` artifacts load. | `backend/models/model_manifest.json`. |
+| 7 | ML model | Approved EMSCAD job models plus optional DIFrauD message/job models; generic offers stay rule-only; only `approved: true`, loadable artifacts run. | `backend/models/model_manifest.json`. |
 | 8 | Frontend + chatbot | React + Tailwind UI; global docs-backed support widget with saved history and clear action. | Open “Ask TrustLens”. |
 | 9 | Honest limits | No calibrated probabilities, no live billing/Turnstile/commercial feeds, no workers/cron on free plan, no production launch. | `docs/LAUNCH_READINESS.md`. |
 | 10 | Roadmap | Retention/legal/security/observability/backups, then staged production release. | Launch readiness action list. |
@@ -41,7 +41,7 @@ Keep these tabs ready:
 6. `backend/models/model_manifest.json`
 7. `docs/LAUNCH_READINESS.md`
 
-> Free Render services sleep after roughly 15 minutes of inactivity. The first request may take about a minute. Say this before clicking.
+> Free Render services sleep after roughly 15 minutes of inactivity. The first request may take about a minute. Say this before clicking. The legacy `hireshield-*` hostnames in the URL list below are retained compatibility keys, not product branding.
 
 ### Step A — prove the backend and database are alive
 
@@ -112,13 +112,13 @@ Point out:
 
 Open `backend/models/model_manifest.json` and say:
 
-- Active/approved: `job_tfidf_logreg` and `job_tfidf_linearsvc`.
-- Rejected/inactive: `message_tfidf_logreg`, `anomaly_iforest`, `anomaly_supervised`.
-- Runtime loads only `approved: true` artifacts.
-- EMSCAD: 17,880 raw rows → 15,700 after cleaning; 60/20/20 split; threshold chosen on validation.
-- LinearSVC test metrics: ROC-AUC 0.991, recall 0.965, precision 0.459.
-- Precision matters: false positives are real. Do not quote accuracy alone.
-- LinearSVC confidence is a sigmoid-mapped margin, **not** a calibrated probability.
+- Active/approved: EMSCAD `job_tfidf_logreg` / `job_tfidf_linearsvc` and, when bundled, DIFrauD `message_difraud_logreg` / `job_difraud_logreg`.
+- Rejected/inactive: synthetic `message_tfidf_logreg`, `anomaly_iforest`, `anomaly_supervised`.
+- Runtime loads only `approved: true` artifacts; DIFrauD families are preferred when approved and loadable, with the legacy job model as fallback.
+- EMSCAD: 17,880 raw rows → 15,700 after cleaning; 60/20/20 split; threshold chosen on validation. DIFrauD uses its own benchmark splits and marks `production_grade=false`.
+- Held-out examples: LinearSVC ROC-AUC 0.991 / precision 0.459; DIFrauD message ROC-AUC 0.994 / precision 0.539; DIFrauD job ROC-AUC 0.940 / precision 0.324.
+- Precision matters: false positives are real. Do not quote accuracy or ROC-AUC alone.
+- Sigmoid-mapped and `confidence` values are **not** calibrated probabilities.
 
 Optional local model-only demo from the repository root:
 
@@ -170,7 +170,7 @@ flowchart LR
 | --- | --- | --- |
 | API | FastAPI, Pydantic, Uvicorn, Argon2 passwords, JWT access/refresh | `backend/app/main.py`, `backend/app/api/`, `backend/app/core/security.py` |
 | Database | MongoDB Atlas M0, PyMongo, repository layer, validators, indexes, 30-day chat TTL | `backend/app/db/mongo.py`, `backend/app/db/repositories.py` |
-| ML | scikit-learn TF-IDF + LogisticRegression + LinearSVC; manifest-gated loading | `backend/models/model_manifest.json`, `backend/app/ml/` |
+| ML | scikit-learn TF-IDF + LogisticRegression / LinearSVC with EMSCAD and optional DIFrauD families; manifest-gated loading | `backend/models/model_manifest.json`, `backend/app/ml/` |
 | Rules | Explainable weighted signal categories (content, URL, brand, threat, community) | `backend/app/core/risk_engine.py` |
 | Frontend | React 18, TypeScript, Vite 5, Tailwind CSS 3, lucide-react | `frontend/src/` |
 | Support | Docs-backed FAQ matcher, MongoDB session logs, clear endpoint | `backend/app/support/faq.py`, `frontend/src/components/SupportWidget.tsx` |
@@ -187,7 +187,7 @@ flowchart LR
 | SMTP / SMS | “Not configured; in-app notifications still work.” |
 | Commercial intelligence APIs | “VirusTotal, Safe Browsing, Web Risk and registry lookup are unconfigured and reported as unavailable.” |
 | Production launch | “NO-GO. Legal, billing, security, observability, backup/DR and release-process blockers remain.” |
-| All ML models | “Only two job-text models are approved. Message/anomaly models were rejected and rule fallbacks are labelled.” |
+| All ML models | “Approved models are scoped to job/message text. Generic offers and rejected families use labelled rule fallbacks.” |
 
 ---
 
@@ -198,13 +198,13 @@ flowchart LR
 | API is live | <https://hireshield-api-wets.onrender.com/health> |
 | MongoDB is connected | `/health` → `database.database = connected`, `in_memory_fallback = false` |
 | Integrations are honest | <https://hireshield-api-wets.onrender.com/api/v1/system/config> |
-| Backend tests pass | `73 passed` via `.\.venv\Scripts\python.exe -m pytest backend/tests -q` |
-| Frontend tests pass | `27 passed` via `npm run test -- --run` |
+| Backend tests pass | `115 passed` via `.\.venv\Scripts\python.exe -m pytest backend/tests -q --tb=line` |
+| Frontend tests pass | `29 passed` via `npm test -- --run` |
 | Frontend builds | `npm run build` |
 | ML governance | `backend/models/model_manifest.json` approval flags and metrics |
 | Deployment record | `docs/RENDER_DEPLOYMENT.md` |
 | Launch status | `docs/LAUNCH_READINESS.md` |
-| Latest demo code | Pushed `origin/main` in the GitHub repository |
+| Latest verification evidence | `END_TO_END_VERIFICATION.md` (local verification; no push/deploy from the verification run) |
 
 ---
 
@@ -216,11 +216,11 @@ No. It is decision support. Inconclusive is valid, and a low score is not safety
 
 **Q: Is the model confidence a probability?**
 
-No. The LinearSVC score is a sigmoid-mapped decision margin used for ranking, not a calibrated fraud probability.
+No. Logistic-regression scores are unvalidated model scores, LinearSVC scores are sigmoid-mapped decision margins, and `confidence` is margin/evidence strength. None is a calibrated fraud probability.
 
 **Q: Why are some models rejected?**
 
-They were trained on synthetic data or have insufficient/unvalidated evidence. The manifest keeps them inactive, so they cannot silently affect results.
+They were trained on synthetic data or have insufficient/unvalidated evidence. The manifest keeps them inactive, so they cannot silently affect results. DIFrauD models pass the real-data gate but remain explicitly marked `production_grade=false`.
 
 **Q: Does the app store card, PAN, CVV or KYC data?**
 

@@ -92,10 +92,10 @@ Related feature flags from `/system/config` after the local test-key configurati
 
 | Item | Evidence | Launch implication |
 | --- | --- | --- |
-| Approved models | `job_tfidf_logreg` and `job_tfidf_linearsvc`, version `v20261118T181617Z-f6e8b1`, from EMSCAD. | Only job text has approved trained models. |
-| Metrics | ROC-AUC 0.9891 / 0.9914; recall 0.9574 / 0.9645; precision 0.375 / 0.4595; PR-AUC 0.8772 / 0.9026. | High ranking performance does not imply low false-positive risk. Avoid accuracy-only marketing claims. |
-| Language / modality | English-language EMSCAD text; no independent employer/domain/sender verification. | Non-English and obfuscated content is unvalidated. |
-| Rejected models | `message_tfidf_logreg` (synthetic, 8 rows), `anomaly_iforest`, `anomaly_supervised` all `approved: false`, `active: false`. | Message and anomaly scoring use labelled rule fallbacks; do not quote their metrics as production KPIs. |
+| Approved models | EMSCAD `job_tfidf_logreg` / `job_tfidf_linearsvc` and optional DIFrauD `message_difraud_logreg` / `job_difraud_logreg`; manifest `training_version=v20261120T083930Z-f6e8b1`. | Approved models are scoped to job/message text. Generic offers remain rule-only. |
+| Metrics | EMSCAD ROC-AUC 0.9891 / 0.9914, precision 0.375 / 0.4595; DIFrauD message ROC-AUC 0.9943, precision 0.5390, FPR 0.3746; DIFrauD job ROC-AUC 0.9401, precision 0.3239, FNR 0.2069. | High ranking performance does not imply low false-positive risk; DIFrauD is a research benchmark with `production_grade=false`. |
+| Language / modality | English-language EMSCAD and DIFrauD text; no independent offer/brand/employer/domain/sender verification. | Non-English and obfuscated content is unvalidated. |
+| Rejected models | `message_tfidf_logreg` (synthetic, 8 rows), `anomaly_iforest`, `anomaly_supervised` all `approved: false`, `active: false`. | Rejected families and generic offers/anomaly scoring use labelled rule fallbacks; do not quote their metrics as production KPIs. |
 | Probability semantics | LinearSVC decision margin is sigmoid-mapped; `confidence` is margin/evidence strength and is not used as the risk score. | UI, docs and support must not describe these as calibrated fraud probabilities. |
 | Drift monitoring | No production monitoring or retraining trigger evidenced. | Add precision/recall and feature-drift tracking before scaling. |
 

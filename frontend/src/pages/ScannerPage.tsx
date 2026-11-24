@@ -19,7 +19,7 @@ import { errorText } from '../lib/utils';
 import { validateJob, validateMessage, validateOffer, validateUrl } from '../lib/validation';
 import type { OfferCategory } from '../types';
 
-type ScannerTab = 'job' | 'offer' | 'url' | 'message' | 'document';
+type ScannerTab = 'offer' | 'job' | 'url' | 'message' | 'document';
 
 const progressSteps = [
   'Preparing submission…',
@@ -40,7 +40,7 @@ function clientRequestId(): string {
 export function ScannerPage() {
   const navigate = useNavigate();
   const { notify } = useToast();
-  const [tab, setTab] = useState<ScannerTab>('job');
+  const [tab, setTab] = useState<ScannerTab>('offer');
   const [consent, setConsent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -147,9 +147,9 @@ export function ScannerPage() {
   return (
     <div>
       <SectionHeading
-        eyebrow="Analysis engine"
-        title="Verify an offer before you act"
-        description="Submit an offer, message, URL or screenshot. Results explain what was observed, what could not be verified, and how confident the assessment is."
+        eyebrow="Verification engine"
+        title="Verify any online offer before you act"
+        description="Submit an offer, advert, message, link or screenshot. Results explain what was observed, what could not be verified, which signals drove the score and what to do next."
       />
 
       <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
@@ -163,10 +163,10 @@ export function ScannerPage() {
                 setServerError('');
               }}
               items={[
-                { key: 'job', label: 'Job text', icon: <TextQuote className="h-4 w-4" /> },
                 { key: 'offer', label: 'Offer', icon: <Megaphone className="h-4 w-4" /> },
+                { key: 'job', label: 'Recruitment', icon: <TextQuote className="h-4 w-4" /> },
                 { key: 'url', label: 'URL', icon: <Link2 className="h-4 w-4" /> },
-                { key: 'message', label: 'Recruiter message', icon: <Mail className="h-4 w-4" /> },
+                { key: 'message', label: 'Message', icon: <Mail className="h-4 w-4" /> },
                 { key: 'document', label: 'Document', icon: <FileUp className="h-4 w-4" /> },
               ]}
             />
@@ -177,17 +177,17 @@ export function ScannerPage() {
 
             {tab === 'job' && (
               <>
-                <Field label="Job description" htmlFor="job-text" error={errors.text} hint="Paste the full post — at least 20 characters. Never include real passwords or financial credentials." required>
-                  <textarea id="job-text" className="input min-h-[220px] resize-y font-mono text-xs leading-relaxed" value={form.text} onChange={(event) => set('text', event.target.value)} placeholder="Paste the job advertisement here…" />
+                <Field label="Recruitment text" htmlFor="job-text" error={errors.text} hint="Paste the full posting or message — at least 20 characters. Never include real passwords or financial credentials." required>
+                  <textarea id="job-text" className="input min-h-[220px] resize-y font-mono text-xs leading-relaxed" value={form.text} onChange={(event) => set('text', event.target.value)} placeholder="Paste the recruitment advertisement or message here…" />
                 </Field>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Field label="Claimed company" htmlFor="job-company">
                     <input id="job-company" className="input" value={form.company_name} onChange={(event) => set('company_name', event.target.value)} placeholder="Optional" />
                   </Field>
-                  <Field label="Job title" htmlFor="job-title">
+                  <Field label="Claimed role" htmlFor="job-title">
                     <input id="job-title" className="input" value={form.job_title} onChange={(event) => set('job_title', event.target.value)} placeholder="Optional" />
                   </Field>
-                  <Field label="Recruiter email" htmlFor="job-email" error={errors.recruiter_email}>
+                  <Field label="Claimed contact email" htmlFor="job-email" error={errors.recruiter_email}>
                     <input id="job-email" type="email" className="input" value={form.recruiter_email} onChange={(event) => set('recruiter_email', event.target.value)} placeholder="Optional" />
                   </Field>
                   <Field label="Source URL" htmlFor="job-source" error={errors.source_url}>
@@ -229,15 +229,15 @@ export function ScannerPage() {
             )}
 
             {tab === 'url' && (
-              <Field label="URL to analyse" htmlFor="scan-url" error={errors.url} hint="Public job posting or employer page. Include the full https:// address." required>
-                <input id="scan-url" className="input font-mono text-xs" value={form.url} onChange={(event) => set('url', event.target.value)} placeholder="https://example.com/careers/role" />
+              <Field label="URL to analyse" htmlFor="scan-url" error={errors.url} hint="Public offer, advert, posting or brand page. Include the full https:// address." required>
+                <input id="scan-url" className="input font-mono text-xs" value={form.url} onChange={(event) => set('url', event.target.value)} placeholder="https://example.com/offer" />
               </Field>
             )}
 
             {tab === 'message' && (
               <>
                 <Field label="Message text" htmlFor="message-text" error={errors.text} hint="At least 5 characters. Remove unrelated personal data where possible." required>
-                  <textarea id="message-text" className="input min-h-[200px] resize-y font-mono text-xs leading-relaxed" value={form.text} onChange={(event) => set('text', event.target.value)} placeholder="Paste the recruiter message here…" />
+                  <textarea id="message-text" className="input min-h-[200px] resize-y font-mono text-xs leading-relaxed" value={form.text} onChange={(event) => set('text', event.target.value)} placeholder="Paste the email, SMS or chat message here…" />
                 </Field>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Field label="Channel" htmlFor="message-channel">

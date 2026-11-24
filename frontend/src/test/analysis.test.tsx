@@ -46,23 +46,25 @@ describe('analysis workflow', () => {
     vi.mocked(resolveAnalysis).mockReset().mockResolvedValue({ id: 'report-1', status: 'completed' });
   });
 
-  it('blocks submission when the job text is too short', async () => {
+  it('blocks submission when the recruitment text is too short', async () => {
     const user = userEvent.setup();
     renderScanner();
 
-    await user.type(screen.getByLabelText(/job description/i), 'short post');
+    await user.click(screen.getByRole('tab', { name: /^recruitment$/i }));
+    await user.type(screen.getByLabelText(/recruitment text/i), 'short post');
     await user.click(screen.getByRole('button', { name: /run analysis/i }));
 
     expect(await screen.findByText(/paste at least 20 characters/i)).toBeInTheDocument();
     expect(analysisApi.submitJob).not.toHaveBeenCalled();
   });
 
-  it('submits a job with consent and opens the resolved report', async () => {
+  it('submits recruitment text with consent and opens the resolved report', async () => {
     const user = userEvent.setup();
     renderScanner();
 
     const description = 'Remote operations associate. No interview required. Salary is competitive and equipment is provided after onboarding.';
-    await user.type(screen.getByLabelText(/job description/i), description);
+    await user.click(screen.getByRole('tab', { name: /^recruitment$/i }));
+    await user.type(screen.getByLabelText(/recruitment text/i), description);
     await user.type(screen.getByLabelText(/claimed company/i), 'Example Ltd');
     await user.click(screen.getByRole('checkbox', { name: /allow external lookups/i }));
     await user.click(screen.getByRole('button', { name: /run analysis/i }));
@@ -128,7 +130,8 @@ describe('analysis workflow', () => {
     vi.mocked(resolveAnalysis).mockResolvedValueOnce({ id: 'result-1', result: immediate, status: 'completed' });
     renderScanner();
 
-    await user.type(screen.getByLabelText(/job description/i), 'A detailed legitimate job description with responsibilities, pay range and application steps.');
+    await user.click(screen.getByRole('tab', { name: /^recruitment$/i }));
+    await user.type(screen.getByLabelText(/recruitment text/i), 'A detailed legitimate recruitment post with responsibilities, pay range and application steps.');
     await user.click(screen.getByRole('button', { name: /run analysis/i }));
 
     expect(await screen.findByText('Report opened')).toBeInTheDocument();

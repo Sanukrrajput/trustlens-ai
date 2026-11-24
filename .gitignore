@@ -28,6 +28,17 @@ reports/*.csv
 reports/*.json
 *.log
 
+# Downloaded third-party training data (large, potentially contains personal data)
+backend/data/datasets/
+
+# Locally trained artifacts that failed approval gates (keep out of releases)
+backend/models/anomaly_iforest_*.joblib
+backend/models/anomaly_iforest_*.meta.json
+backend/models/anomaly_supervised_*.joblib
+backend/models/anomaly_supervised_*.meta.json
+backend/models/message_tfidf_logreg_*.joblib
+backend/models/message_tfidf_logreg_*.meta.json
+
 # Backups (logical dumps contain personal data and must never be committed)
 backups/
 *.dump

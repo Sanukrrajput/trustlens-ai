@@ -2,6 +2,8 @@
 
 This document converts the TrustLens AI master specification into an executable, staged plan for **this repository**. It is derived from the specification body (sections 3–14) because the supplied prompt ended at "STAGE 1: Architecture".
 
+> **Concept correction:** the engineering decision to rebrand and extend the HireShield baseline in place does not define the product. [TRUSTLENS_CONCEPT.md](../TRUSTLENS_CONCEPT.md) is the authoritative definition. User-facing copy must be offer-first; recruitment is one supported category, not the product's identity.
+
 ## Decisions taken with the project owner
 
 | Decision | Choice | Consequence |
