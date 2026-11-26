@@ -6,6 +6,8 @@ TrustLens AI screens offers, advertisements, giveaways, scholarships, investment
 
 **Live frontend (free static hosting):** <https://sanukrrajput.github.io/trustlens-ai/>. It is the same React UI served locally on port `5174`; API-backed actions require a running backend.
 
+**Deploy the full stack (API + frontend) on Render Free:** [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Sanukrrajput/trustlens-ai) — the Blueprint needs no payment keys or database secrets; it uses an in-memory database, so data resets on restart.
+
 > **Honest framing:** TrustLens AI is a decision-support tool, not a background-check bureau, legal adviser, fraud insurer or guarantee of legitimacy. A low score is not proof that an opportunity is safe; an inconclusive score means the available evidence was insufficient. See the [Honesty and current limits](#honesty-and-current-limits) section.
 
 ---
