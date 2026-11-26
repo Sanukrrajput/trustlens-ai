@@ -7,6 +7,7 @@ import os
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, AsyncIterator
 from uuid import uuid4
 
@@ -14,7 +15,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from starlette.types import Receive, Scope, Send
 from pymongo.errors import PyMongoError
 
@@ -42,6 +43,24 @@ from app.services.plan_service import PlanService
 
 logger = logging.getLogger(__name__)
 VERSION = system.VERSION
+
+# Optional single-origin deployment: the built React bundle is served by the
+# API process so a free host needs only one web service and no CORS wiring.
+SERVE_FRONTEND = os.getenv("SERVE_FRONTEND", "false").strip().lower() in {
+    "1", "true", "yes", "on"
+}
+FRONTEND_DIR = Path(os.getenv("FRONTEND_DIR", "/app/frontend/dist"))
+FRONTEND_INDEX = FRONTEND_DIR / "index.html"
+
+# API responses keep the strict no-content policy. Served HTML needs to load
+# the local bundle, fonts and its own small SPA bootstrap script.
+API_CSP = "default-src 'none'; frame-ancestors 'none'; base-uri 'none'"
+FRONTEND_CSP = (
+    "default-src 'self'; script-src 'self' 'unsafe-inline'; "
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+    "font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; "
+    "connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'self'"
+)
 
 
 class LazyCompanyVerifier:
@@ -321,7 +340,13 @@ async def security_and_usage_middleware(request: Request, call_next):  # type: i
             response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
             response.headers.setdefault("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
             response.headers.setdefault("Cross-Origin-Opener-Policy", "same-origin")
-            response.headers.setdefault("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'; base-uri 'none'")
+            content_type = response.headers.get("content-type", "")
+            csp = (
+                FRONTEND_CSP
+                if SERVE_FRONTEND and content_type.startswith("text/html")
+                else API_CSP
+            )
+            response.headers.setdefault("Content-Security-Policy", csp)
             if settings.environment.lower() in {"production", "prod"}:
                 response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 
@@ -397,8 +422,10 @@ for router in (notifications.router, billing.router, admin.router, support.route
     app.include_router(router, prefix=API_PREFIX)
 
 
-@app.get("/", tags=["system"])
-def root() -> dict[str, Any]:
+@app.get("/", tags=["system"], include_in_schema=False)
+def root() -> Any:
+    if SERVE_FRONTEND and FRONTEND_INDEX.is_file():
+        return FileResponse(FRONTEND_INDEX)
     return {
         "service": "TrustLens AI",
         "version": VERSION,
@@ -421,3 +448,24 @@ def health(request: Request) -> dict[str, Any]:
         "in_memory_fallback": degraded,
         "started_at": getattr(request.app.state, "started_at", None),
     }
+
+
+if SERVE_FRONTEND and FRONTEND_DIR.is_dir():
+    @app.get("/{full_path:path}", include_in_schema=False)
+    def spa_fallback(full_path: str) -> Any:
+        """Serve built assets and fall back to the SPA entry point.
+
+        API and health paths are never swallowed by the catch-all route.
+        Path traversal is rejected before a file is opened.
+        """
+        if full_path.startswith(("api/", "health", "docs", "openapi.json")):
+            return JSONResponse(status_code=404, content={"detail": "not found"})
+        base = FRONTEND_DIR.resolve()
+        candidate = (FRONTEND_DIR / full_path).resolve()
+        try:
+            candidate.relative_to(base)
+        except ValueError:
+            return JSONResponse(status_code=404, content={"detail": "not found"})
+        if candidate.is_file():
+            return FileResponse(candidate)
+        return FileResponse(FRONTEND_INDEX)

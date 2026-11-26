@@ -1,18 +1,13 @@
 # TrustLens AI — public evaluation deployment (Render Free plan)
 #
-# This Blueprint deploys the full application with no external account secrets:
-# one free Docker web service (FastAPI) and one free static site (React).
-# Redis, Celery workers and beat are disabled because Render has no free tier
-# for them; tasks run in-process via TASK_ALWAYS_EAGER and schedules do not run.
+# One Docker web service serves the FastAPI backend and the built React app on
+# the same origin, so there is no CORS/API-URL wiring and no external database:
+#   * MONGODB_URI=mongomock:// -> in-memory data; resets on restart/sleep.
+#   * Celery/Redis/beat are disabled; tasks run in-process (TASK_ALWAYS_EAGER).
+#   * No payment or Turnstile keys are required; those features stay disabled.
 #
-# IMPORTANT: MONGODB_URI is `mongomock://`, an in-memory database. Scans work
-# for anyone, but accounts, reports and rate-limit counters reset whenever the
-# free service sleeps/restarts. Use a real MongoDB URI for any real launch.
-#
-# After the first deploy, set the API's CORS_ORIGINS to the static site's real
-# URL and the static site's VITE_API_URL to the API's real URL, then redeploy.
-# The placeholders below use the requested service names; Render may add a
-# suffix when a name is already taken.
+# This is an evaluation deployment, not a production launch. Use a real
+# MongoDB URI, TLS, backups and secrets before exposing real user data.
 
 previews:
   generation: 'off'
@@ -35,7 +30,7 @@ envVarGroups:
       - key: REFRESH_TOKEN_EXPIRE_DAYS
         value: '14'
       - key: CORS_ORIGINS
-        value: https://trustlens-web.onrender.com
+        value: https://trustlens.onrender.com
       - key: ALLOWED_HOSTS
         value: '*'
       - key: RATE_LIMIT_PER_MINUTE
@@ -46,6 +41,8 @@ envVarGroups:
         value: /app/models
       - key: DATA_DIR
         value: /app/data
+      - key: FRONTEND_DIR
+        value: /app/frontend/dist
       - key: CELERY_ENABLED
         value: 'false'
       - key: TASK_ALWAYS_EAGER
@@ -66,14 +63,13 @@ envVarGroups:
         value: 'false'
 
 services:
-  # --------------------------------------------------------------------- API
   - type: web
-    name: trustlens-api
+    name: trustlens
     runtime: docker
     region: oregon
     plan: free
-    dockerfilePath: ./backend/Dockerfile
-    dockerContext: ./backend
+    dockerfilePath: ./Dockerfile.fullstack
+    dockerContext: .
     dockerCommand: 'uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers'
     healthCheckPath: /health
     envVars:
@@ -82,27 +78,5 @@ services:
         value: '8000'
       - key: MONGODB_URI
         value: mongomock://
-
-  # ---------------------------------------------------------------- Frontend
-  - type: web
-    name: trustlens-web
-    runtime: static
-    buildCommand: 'cd frontend && npm ci && npm run build'
-    staticPublishPath: ./frontend/dist
-    envVars:
-      - key: VITE_API_URL
-        value: https://trustlens-api.onrender.com/api/v1
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
-    headers:
-      - path: /*
-        name: X-Content-Type-Options
-        value: nosniff
-      - path: /*
-        name: X-Frame-Options
-        value: SAMEORIGIN
-      - path: /*
-        name: Referrer-Policy
-        value: strict-origin-when-cross-origin
+      - key: SERVE_FRONTEND
+        value: 'true'
