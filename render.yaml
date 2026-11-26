@@ -1,24 +1,24 @@
-# TrustLens AI — Render Blueprint (free plan)
+# TrustLens AI — public evaluation deployment (Render Free plan)
 #
-# This variant uses only Render resources with a Free compute plan: one free web
-# service (API) and a free static site. Render does NOT offer free background
-# workers, cron jobs or Key Value with persistence, so Celery/Redis are disabled
-# and tasks run in-process via TASK_ALWAYS_EAGER. Scheduled jobs do not run.
-# See docs/RENDER_DEPLOYMENT.md for dashboard steps and the production variant.
+# This Blueprint deploys the full application with no external account secrets:
+# one free Docker web service (FastAPI) and one free static site (React).
+# Redis, Celery workers and beat are disabled because Render has no free tier
+# for them; tasks run in-process via TASK_ALWAYS_EAGER and schedules do not run.
 #
-# A free web service sleeps after ~15 minutes idle and takes ~1 minute to wake.
-# This deployment is for evaluation only, not production. Free Key Value/Redis is
-# in-memory only, so it is intentionally not used here.
+# IMPORTANT: MONGODB_URI is `mongomock://`, an in-memory database. Scans work
+# for anyone, but accounts, reports and rate-limit counters reset whenever the
+# free service sleeps/restarts. Use a real MongoDB URI for any real launch.
 #
-# MongoDB is external (MongoDB Atlas free M0 is used for this deployment).
+# After the first deploy, set the API's CORS_ORIGINS to the static site's real
+# URL and the static site's VITE_API_URL to the API's real URL, then redeploy.
+# The placeholders below use the requested service names; Render may add a
+# suffix when a name is already taken.
 
 previews:
-  generation: "off"
+  generation: 'off'
 
-# Shared, non-prompted backend settings. SECRET_KEY is generated once for the
-# group and used by the API.
 envVarGroups:
-  - name: hireshield-backend
+  - name: trustlens-public
     envVars:
       - key: APP_NAME
         value: TrustLens AI
@@ -31,49 +31,44 @@ envVarGroups:
       - key: JWT_ALGORITHM
         value: HS256
       - key: ACCESS_TOKEN_EXPIRE_MINUTES
-        value: "30"
+        value: '30'
       - key: REFRESH_TOKEN_EXPIRE_DAYS
-        value: "14"
-      # Render appended suffixes to the requested service names. Keep these in
-      # sync with VITE_API_URL below if the public hosts change.
+        value: '14'
       - key: CORS_ORIGINS
-        value: https://hireshield-web-j72o.onrender.com
+        value: https://trustlens-web.onrender.com
       - key: ALLOWED_HOSTS
-        value: hireshield-api-wets.onrender.com
+        value: '*'
       - key: RATE_LIMIT_PER_MINUTE
-        value: "120"
+        value: '120'
       - key: MONGODB_DB
-        value: hireshield
+        value: trustlens
       - key: MODEL_DIR
         value: /app/models
       - key: DATA_DIR
         value: /app/data
-      # Free Render has no workers, so tasks run in the web process.
       - key: CELERY_ENABLED
-        value: "false"
+        value: 'false'
       - key: TASK_ALWAYS_EAGER
-        value: "true"
-      # No Celery beat/cron on free, so scheduled monitoring never runs.
+        value: 'true'
       - key: SCHEDULER_ENABLED
-        value: "false"
+        value: 'false'
       - key: SEED_DEMO_DATA
-        value: "false"
+        value: 'false'
       - key: PAYMENT_CURRENCY
         value: INR
       - key: TURNSTILE_ENABLED
-        value: "true"
+        value: 'false'
       - key: RDAP_ENABLED
-        value: "true"
+        value: 'false'
       - key: DNS_ENABLED
-        value: "true"
+        value: 'false'
       - key: TLS_ENABLED
-        value: "true"
+        value: 'false'
 
 services:
-  # -------------------------------------------------------------------- API
-  # Render web services route public traffic to the port named by PORT.
+  # --------------------------------------------------------------------- API
   - type: web
-    name: hireshield-api
+    name: trustlens-api
     runtime: docker
     region: oregon
     plan: free
@@ -82,35 +77,21 @@ services:
     dockerCommand: 'uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers'
     healthCheckPath: /health
     envVars:
-      - fromGroup: hireshield-backend
+      - fromGroup: trustlens-public
       - key: PORT
-        value: "8000"
-      # Render prompts for sync:false values only when the Blueprint is first
-      # created. Leave Razorpay/Turnstile values blank to keep them disabled.
+        value: '8000'
       - key: MONGODB_URI
-        sync: false
-      - key: RAZORPAY_KEY_ID
-        sync: false
-      - key: RAZORPAY_KEY_SECRET
-        sync: false
-      - key: RAZORPAY_WEBHOOK_SECRET
-        sync: false
-      - key: TURNSTILE_SITE_KEY
-        sync: false
-      - key: TURNSTILE_SECRET_KEY
-        sync: false
+        value: mongomock://
 
-  # --------------------------------------------------------------- Frontend
-  # Built from the repo root so staticPublishPath is unambiguous. VITE_API_URL
-  # is baked into the bundle at build time; it must be the API's public URL.
+  # ---------------------------------------------------------------- Frontend
   - type: web
-    name: hireshield-web
+    name: trustlens-web
     runtime: static
     buildCommand: 'cd frontend && npm ci && npm run build'
     staticPublishPath: ./frontend/dist
     envVars:
       - key: VITE_API_URL
-        value: https://hireshield-api-wets.onrender.com/api/v1
+        value: https://trustlens-api.onrender.com/api/v1
     routes:
       - type: rewrite
         source: /*
