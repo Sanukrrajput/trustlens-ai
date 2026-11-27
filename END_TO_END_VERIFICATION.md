@@ -560,4 +560,15 @@ Bearer tokens were removed from the evidence file before it was written.
 
 ## 7. Final statement
 
-All 16 requested capability areas were exercised locally. Fifteen passed and one is partial solely because self-service deletion is not implemented. Failure paths, unavailable integrations and stub boundaries are documented above. Offer-first naming and DIFrauD integration checks were also completed as described in Section 2.1. No deployment or push was performed, and this report is left uncommitted pending explicit approval.
+All 16 requested capability areas were exercised locally. Fifteen passed and one is partial solely because self-service deletion is not implemented. Failure paths, unavailable integrations and stub boundaries are documented above. Offer-first naming and DIFrauD integration checks were also completed as described in Section 2.1. The original verification run was performed before deployment; later commits pushed the offer-first rebrand, GitHub Pages workflow and Render Blueprint.
+
+---
+
+## 8. Public build and Enterprise pricing follow-up
+
+- Enterprise plan pricing was changed from `0 / 0` paise to `299900 / 2999000` paise (₹2,999/month and ₹29,990/year) in `backend/app/services/plan_service.py`, with the matching row in `docs/BUSINESS.md`.
+- `backend/tests/test_api.py` now asserts the Enterprise amount, so a future seed cannot silently return to ₹0.
+- The public GitHub Pages build gained `/verify`, a browser-only rule-based quick scan. It uses no API, uploads nothing, labels unavailable registry/threat/community checks, and exports its evidence JSON.
+- `frontend/src/lib/plans.ts` supplies the published prices when no API is reachable, including Enterprise ₹2,999/month. Live API plans take precedence.
+- Verification for this follow-up: `115` backend tests passed, `34` frontend tests across `9` files passed, `npm run build` passed, Ruff and secret scan passed, and `render.yaml` parsed successfully.
+- Browser verification confirmed the full-stack local app renders `Enterprise — ₹2,999/ month — ₹29,990 billed yearly`; the remaining `₹0/month` card belongs only to the Free plan.

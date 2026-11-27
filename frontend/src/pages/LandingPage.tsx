@@ -24,6 +24,7 @@ import { Badge, Card, SkeletonBlock } from '../components/ui';
 import { useApi } from '../hooks/useApi';
 import { billingApi, systemApi } from '../lib/api';
 import { demoAnalysis, demoFaqs, DEMO_LABEL } from '../lib/demo';
+import { FALLBACK_PLANS } from '../lib/plans';
 import { formatMoney, titleCase } from '../lib/utils';
 import type { PlanOut } from '../types';
 
@@ -103,11 +104,18 @@ function Pricing() {
   const { data: plans, loading } = useApi<PlanOut[]>(() => billingApi.plans(), []);
   const { data: config } = useApi(() => systemApi.config(), []);
   const configPlans = Array.isArray(config?.plans) ? (config.plans as unknown as PlanOut[]) : [];
-  const displayPlans = plans?.length ? plans : configPlans;
+  const livePlans = plans?.length ? plans : configPlans;
+  const displayPlans = livePlans.length ? livePlans : FALLBACK_PLANS;
+  const usingFallback = !loading && livePlans.length === 0;
 
   return (
     <div>
-      {loading && !displayPlans?.length && (
+      {usingFallback && (
+        <p className="mx-auto mb-6 max-w-2xl text-center text-xs leading-relaxed text-muted">
+          Static public build: these are the published plan prices. Live checkout and account features require the full service.
+        </p>
+      )}
+      {loading && !livePlans.length && (
         <div className="grid gap-5 md:grid-cols-3">
           {[0, 1, 2].map((key) => <SkeletonBlock key={key} className="h-72" />)}
         </div>
@@ -189,8 +197,8 @@ export function LandingPage() {
               TrustLens AI turns online offers, messages, links and screenshots into an explainable evidence report — with sources, confidence, missing information and next steps attached to every finding.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <Link to="/register" className="btn-primary px-6 py-3 text-base">Start a free investigation <ArrowRight className="h-4 w-4" /></Link>
-              <Link to="/login" className="btn-secondary px-6 py-3 text-base">Sign in</Link>
+              <Link to="/verify" className="btn-primary px-6 py-3 text-base">Run a free quick scan <ArrowRight className="h-4 w-4" /></Link>
+              <Link to="/register" className="btn-secondary px-6 py-3 text-base">Create an account</Link>
             </div>
             <div className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-xs text-muted">
               <span className="inline-flex items-center gap-1.5"><ShieldCheck className="h-4 w-4 text-safe" /> Privacy-conscious</span>
@@ -249,8 +257,8 @@ export function LandingPage() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="mb-10 text-center">
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-brand-600 dark:text-brand-400">Pricing</p>
-            <h2 className="section-title mt-2">Plans from the live billing service</h2>
-            <p className="mt-3 text-sm text-muted">Prices and limits are loaded from the API at runtime — no stale numbers.</p>
+            <h2 className="section-title mt-2">Simple, transparent pricing</h2>
+            <p className="mt-3 text-sm text-muted">Live plans are loaded from the billing API when available; the public static build shows the same published prices.</p>
           </div>
           <Pricing />
         </div>
@@ -270,8 +278,11 @@ export function LandingPage() {
           <div className="relative">
             <FileSearch className="mx-auto h-8 w-8 text-cyan-300" />
             <h2 className="mt-5 text-3xl font-bold">Check the next opportunity before it checks you</h2>
-            <p className="mx-auto mt-3 max-w-xl text-sm text-slate-300">Create a free account and check one offer, message, link or screenshot.</p>
-            <Link to="/register" className="btn-primary mt-7 px-6 py-3 text-base">Get started free <ArrowRight className="h-4 w-4" /></Link>
+            <p className="mx-auto mt-3 max-w-xl text-sm text-slate-300">Run a private quick scan now, or create a free account for persistent reports and deeper checks.</p>
+            <div className="mt-7 flex flex-wrap justify-center gap-3">
+              <Link to="/verify" className="btn-primary px-6 py-3 text-base">Run a quick scan <ArrowRight className="h-4 w-4" /></Link>
+              <Link to="/register" className="btn-secondary px-6 py-3 text-base">Create an account</Link>
+            </div>
           </div>
         </div>
       </section>

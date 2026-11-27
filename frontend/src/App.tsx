@@ -13,6 +13,7 @@ import { DashboardPage } from './pages/DashboardPage';
 import { LandingPage } from './pages/LandingPage';
 import { PrivacyPage, TermsPage } from './pages/LegalPages';
 import { MonitoringPage } from './pages/MonitoringPage';
+import { PublicScanPage } from './pages/PublicScanPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { ReportPage } from './pages/ReportPage';
 import { ScannerPage } from './pages/ScannerPage';
@@ -40,6 +41,7 @@ export function App() {
       <Routes>
         <Route element={<PublicLayout />}>
           <Route index element={<LandingPage />} />
+          <Route path="verify" element={<PublicScanPage />} />
           <Route path="privacy" element={<PrivacyPage />} />
           <Route path="terms" element={<TermsPage />} />
           <Route path="*" element={<NotFoundPage />} />

@@ -16,6 +16,7 @@ export function PublicLayout() {
         <div className="mx-auto flex h-16 max-w-7xl items-center gap-6 px-4 sm:px-6 lg:px-8">
           <Logo />
           <nav className="ml-6 hidden items-center gap-6 text-sm font-medium text-muted md:flex">
+            <Link className="hover:text-ink" to="/verify">Quick scan</Link>
             <a className="hover:text-ink" href={`${base}#capabilities`}>Capabilities</a>
             <a className="hover:text-ink" href={`${base}#pricing`}>Pricing</a>
             <a className="hover:text-ink" href={`${base}#faq`}>FAQ</a>
@@ -37,6 +38,7 @@ export function PublicLayout() {
         </div>
         {open && (
           <nav className="border-t border-line bg-surface px-4 py-3 md:hidden">
+            <Link to="/verify" className="block rounded-lg px-3 py-2 text-sm text-muted hover:bg-elevated" onClick={() => setOpen(false)}>Quick scan</Link>
             {[
               ['Capabilities', '/#capabilities'],
               ['Pricing', '/#pricing'],
@@ -66,7 +68,8 @@ export function PublicLayout() {
           <div>
             <p className="mb-3 text-xs font-bold uppercase tracking-wider text-ink">Product</p>
             <ul className="space-y-2 text-sm text-muted">
-              <li><Link className="hover:text-brand-500" to="/app/scan">Scanner</Link></li>
+              <li><Link className="hover:text-brand-500" to="/verify">Public quick scan</Link></li>
+              <li><Link className="hover:text-brand-500" to="/app/scan">Full scanner</Link></li>
               <li><Link className="hover:text-brand-500" to="/app/company">Company intelligence</Link></li>
               <li><Link className="hover:text-brand-500" to="/app/monitoring">Monitoring</Link></li>
               <li><Link className="hover:text-brand-500" to="/#pricing">Pricing</Link></li>
