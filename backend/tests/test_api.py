@@ -276,7 +276,10 @@ def test_billing_plans_subscription_and_unconfigured_checkout(
 
     headers, _ = _auth_client(client)
     plans = client.get(f"{BASE}/billing/plans").json()
-    assert {plan["code"] for plan in plans} >= {"free", "student", "professional"}
+    assert {plan["code"] for plan in plans} >= {"free", "student", "professional", "enterprise"}
+    enterprise = next(plan for plan in plans if plan["code"] == "enterprise")
+    assert enterprise["price_monthly_paise"] == 299900
+    assert enterprise["price_yearly_paise"] == 2999000
 
     subscription = client.get(f"{BASE}/billing/subscription", headers=headers).json()
     assert subscription["plan_code"] == "free"

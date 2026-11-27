@@ -44,7 +44,7 @@ Plans are seeded into MongoDB by `PlanService.default_plans()` when absent, then
 | `student` | Student | Affordable protection for students, recent graduates and everyday users. | 9,900 / ₹99 | 99,000 / ₹990 | 100 | Higher scan limits; PDF reports; Offer monitoring; Email alerts | Yes | Yes |
 | `professional` | Professional | Advanced investigation for frequent users and teams. | 29,900 / ₹299 | 299,000 / ₹2,990 | 500 | Advanced domain intelligence; Detailed reports; Multiple monitored entities; Advanced analytics | Yes | No |
 | `university` | University | Institutional verification workspace. | 99,900 / ₹999 | 999,000 / ₹9,990 | 5,000 | Organization accounts; Bulk verification; Staff accounts; Institutional reports; Centralized monitoring | Yes | No |
-| `enterprise` | Enterprise | Custom deployment, API access and organisation-wide monitoring. | 0 / ₹0 | 0 / ₹0 | 100,000 | Custom limits; API access; Organization-wide monitoring; Role-based administration; Custom reporting | Yes | No |
+| `enterprise` | Enterprise | Custom deployment, API access and organisation-wide monitoring. | 2,999 / ₹2,999 | 29,990 / ₹29,990 | 100,000 | Custom limits; API access; Organization-wide monitoring; Role-based administration; Custom reporting | Yes | No |
 
 Scan limits are also configurable through `FREE_SCAN_LIMIT`, `STUDENT_SCAN_LIMIT`, `PROFESSIONAL_SCAN_LIMIT`, `UNIVERSITY_SCAN_LIMIT` and `ENTERPRISE_SCAN_LIMIT` (defaults `10 / 100 / 500 / 5000 / 100000`). `PlanService.can_scan()` denies scans once usage reaches the limit; `consume_scan()` increments usage after a completed analysis.
 
