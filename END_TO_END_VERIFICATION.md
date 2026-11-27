@@ -570,5 +570,6 @@ All 16 requested capability areas were exercised locally. Fifteen passed and one
 - `backend/tests/test_api.py` now asserts the Enterprise amount, so a future seed cannot silently return to ₹0.
 - The public GitHub Pages build gained `/verify`, a browser-only rule-based quick scan. It uses no API, uploads nothing, labels unavailable registry/threat/community checks, and exports its evidence JSON.
 - `frontend/src/lib/plans.ts` supplies the published prices when no API is reachable, including Enterprise ₹2,999/month. Live API plans take precedence.
-- Verification for this follow-up: `115` backend tests passed, `34` frontend tests across `9` files passed, `npm run build` passed, Ruff and secret scan passed, and `render.yaml` parsed successfully.
+- Verification for this follow-up: `115` backend tests passed, `36` frontend tests across `10` files passed, `npm run build` passed, Ruff and secret scan passed, and `render.yaml` parsed successfully.
 - Browser verification confirmed the full-stack local app renders `Enterprise — ₹2,999/ month — ₹29,990 billed yearly`; the remaining `₹0/month` card belongs only to the Free plan.
+- On `*.github.io`, the frontend skips same-origin API requests entirely instead of generating `/api/v1` 404s. Setting `VITE_API_URL` restores API calls for a separately hosted backend.

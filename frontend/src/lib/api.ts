@@ -33,6 +33,20 @@ import type {
 
 export const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) || '/api/v1';
 
+/**
+ * The repository Pages build has no same-origin API. Detect it before fetching
+ * so the public quick scan and static pricing fallback stay free of failed
+ * network requests and console noise. Set VITE_API_URL when a backend is
+ * available on a different origin.
+ */
+export function isPublicStaticBuild(): boolean {
+  if (import.meta.env.VITE_API_URL) return false;
+  if (typeof window === 'undefined') return false;
+  return /(^|\.)github\.io$/i.test(window.location.hostname);
+}
+
+const STATIC_BUILD_ERROR = 'This public static build has no backend. The browser-only quick scan and published pricing still work without an API.';
+
 const ACCESS_KEY = 'trustlens.access_token';
 const REFRESH_KEY = 'trustlens.refresh_token';
 const USER_KEY = 'trustlens.user';
@@ -233,6 +247,7 @@ async function refreshTokens(): Promise<boolean> {
 
 /** Core request helper. Refreshes an expired access token once, then retries. */
 export async function api<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  if (isPublicStaticBuild()) throw new ApiError(STATIC_BUILD_ERROR, 503);
   const { method = 'GET', body, params, headers = {}, signal, anonymous = false } = options;
   const isForm = typeof FormData !== 'undefined' && body instanceof FormData;
   const requestHeaders: Record<string, string> = { ...headers };
